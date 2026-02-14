@@ -1,0 +1,21 @@
+location:
+  name: "Columbia River - Astoria"
+  latitude: 46.1879
+  longitude: -123.8313
+  timezone: "America/Los_Angeles"
+
+stations:
+  tide: "9439040"           # NOAA station ID (Astoria, OR)
+  water_temp: "9439040"
+  usgs_gauge: null           # Optional USGS gauge for river data
+
+preferences:
+  units: imperial            # imperial | metric
+  time_format: 12h           # 12h | 24h
+  score_weights:
+    solunar: 0.25
+    tide: 0.25
+    pressure: 0.20
+    wind: 0.15
+    cloud: 0.10
+    precipitation: 0.05
