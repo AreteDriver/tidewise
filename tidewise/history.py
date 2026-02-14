@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import json
 import sqlite3
 from datetime import UTC, datetime, timedelta
@@ -138,6 +139,27 @@ def get_recent_scores(
         return [dict(r) for r in rows]
     finally:
         conn.close()
+
+
+_CSV_COLUMNS = [
+    "timestamp",
+    "location",
+    "station_id",
+    "composite",
+    "best_window_start",
+    "best_window_end",
+    "best_window_reason",
+]
+
+
+def export_csv(records: list[dict], output: Path) -> Path:
+    """Export score records to a CSV file. Returns the path written."""
+    with open(output, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=_CSV_COLUMNS, extrasaction="ignore")
+        writer.writeheader()
+        for record in records:
+            writer.writerow({col: record.get(col) for col in _CSV_COLUMNS})
+    return output
 
 
 def purge_old_records(retention_days: int = 365, db_path: Path | None = None) -> int:

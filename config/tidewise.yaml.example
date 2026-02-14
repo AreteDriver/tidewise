@@ -31,3 +31,24 @@ notifications:
 history:
   enabled: true              # auto-log scores from today/score commands
   retention_days: 365        # purge records older than this
+
+# Named location profiles — switch with: tidewise --profile newport today
+profiles:
+  astoria:
+    location:
+      name: "Columbia River - Astoria"
+      latitude: 46.1879
+      longitude: -123.8313
+      timezone: "America/Los_Angeles"
+    stations:
+      tide: "9439040"
+      water_temp: "9439040"
+  newport:
+    location:
+      name: "Yaquina Bay - Newport"
+      latitude: 44.6253
+      longitude: -124.0535
+      timezone: "America/Los_Angeles"
+    stations:
+      tide: "9435380"
+      water_temp: "9435380"

@@ -192,10 +192,50 @@ class TestHistoryCommand:
         assert "Score History" in result.output
         assert "7.5" in result.output
 
+    def test_history_export_csv(self, runner, tmp_path):
+        config_file = tmp_path / "cfg.yaml"
+        config_file.write_text("location:\n  name: 'Test'\n")
+        csv_path = tmp_path / "out.csv"
+        records = [
+            {
+                "timestamp": "2026-03-15T12:00:00+00:00",
+                "location": "Test",
+                "station_id": "9439040",
+                "composite": 7.5,
+                "best_window_start": "2026-03-15T14:00:00+00:00",
+                "best_window_end": "2026-03-15T16:00:00+00:00",
+                "best_window_reason": "Solunar major",
+            },
+        ]
+        with (
+            patch("tidewise.history.get_recent_scores", return_value=records),
+            patch("tidewise.history.purge_old_records", return_value=0),
+        ):
+            result = runner.invoke(
+                main,
+                ["--config", str(config_file), "history", "--export", str(csv_path)],
+            )
+        assert result.exit_code == 0
+        assert "Exported 1 records" in result.output
+        assert csv_path.exists()
+
+    def test_history_export_no_data(self, runner, tmp_path):
+        config_file = tmp_path / "cfg.yaml"
+        config_file.write_text("location:\n  name: 'Test'\n")
+        csv_path = tmp_path / "out.csv"
+        with patch("tidewise.history.get_recent_scores", return_value=[]):
+            result = runner.invoke(
+                main,
+                ["--config", str(config_file), "history", "--export", str(csv_path)],
+            )
+        assert result.exit_code == 0
+        assert "No history" in result.output
+
     def test_history_help(self, runner):
         result = runner.invoke(main, ["history", "--help"])
         assert result.exit_code == 0
         assert "--days" in result.output
+        assert "--export" in result.output
 
 
 class TestAutoLogging:
@@ -220,11 +260,63 @@ class TestAutoLogging:
         mock_log.assert_not_called()
 
 
+class TestProfileOption:
+    def test_profile_overrides_location_and_stations(self, runner, mock_sources, tmp_path):
+        config_file = tmp_path / "cfg.yaml"
+        config_file.write_text(
+            """
+profiles:
+  newport:
+    location:
+      name: "Yaquina Bay - Newport"
+      latitude: 44.6253
+      longitude: -124.0535
+      timezone: "America/Los_Angeles"
+    stations:
+      tide: "9435380"
+      water_temp: "9435380"
+"""
+        )
+        result = runner.invoke(
+            main, ["--config", str(config_file), "--profile", "newport", "today"]
+        )
+        assert result.exit_code == 0
+        # Verify the config was overridden by checking mock call args
+        call_cfg = mock_sources.call_args[0][0]
+        assert call_cfg.location.name == "Yaquina Bay - Newport"
+        assert call_cfg.stations.tide == "9435380"
+
+    def test_profile_not_found(self, runner, tmp_path):
+        config_file = tmp_path / "cfg.yaml"
+        config_file.write_text("location:\n  name: 'Test'\n")
+        result = runner.invoke(
+            main, ["--config", str(config_file), "--profile", "nonexistent", "today"]
+        )
+        assert result.exit_code != 0
+        assert "nonexistent" in result.output
+        assert "not found" in result.output
+
+    def test_profile_not_found_shows_available(self, runner, tmp_path):
+        config_file = tmp_path / "cfg.yaml"
+        config_file.write_text(
+            """
+profiles:
+  astoria:
+    location:
+      name: "Astoria"
+"""
+        )
+        result = runner.invoke(main, ["--config", str(config_file), "--profile", "bogus", "today"])
+        assert result.exit_code != 0
+        assert "astoria" in result.output
+
+
 class TestMainGroup:
     def test_help(self, runner):
         result = runner.invoke(main, ["--help"])
         assert result.exit_code == 0
         assert "TideWise" in result.output
+        assert "--profile" in result.output
 
     def test_subcommand_help(self, runner):
         result = runner.invoke(main, ["today", "--help"])

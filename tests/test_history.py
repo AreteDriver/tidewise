@@ -1,10 +1,12 @@
 """Tests for historical score tracking."""
 
+import csv
 from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from tidewise.history import (
+    export_csv,
     get_recent_scores,
     init_db,
     log_score,
@@ -168,6 +170,61 @@ class TestGetRecentScores:
         records = get_recent_scores(days=9999, db_path=db_path)
         suggestions = json.loads(records[0]["suggestions"])
         assert "Fish the incoming tide" in suggestions
+
+
+class TestExportCsv:
+    def test_writes_correct_headers_and_data(self, tmp_path, db_path, sample_score):
+        ts = datetime(2026, 3, 15, 12, 0, tzinfo=UTC)
+        log_score(sample_score, "Astoria", "9439040", ts, db_path)
+        records = get_recent_scores(days=9999, db_path=db_path)
+
+        out = tmp_path / "export.csv"
+        result = export_csv(records, out)
+        assert result == out
+        assert out.exists()
+
+        with open(out) as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+        assert len(rows) == 1
+        assert rows[0]["composite"] == "7.5"
+        assert rows[0]["location"] == "Astoria"
+        assert rows[0]["station_id"] == "9439040"
+        assert "factors" not in reader.fieldnames
+        assert "suggestions" not in reader.fieldnames
+
+    def test_empty_records_writes_headers_only(self, tmp_path):
+        out = tmp_path / "empty.csv"
+        export_csv([], out)
+
+        with open(out) as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+        assert rows == []
+        assert "timestamp" in reader.fieldnames
+        assert "composite" in reader.fieldnames
+
+    def test_handles_none_best_window(self, tmp_path, db_path):
+        score = FishingScore(
+            composite=3.0,
+            factors=[],
+            best_window_start=None,
+            best_window_end=None,
+            best_window_reason="No favorable window",
+        )
+        ts = datetime(2026, 3, 15, 12, 0, tzinfo=UTC)
+        log_score(score, "Astoria", "9439040", ts, db_path)
+        records = get_recent_scores(days=9999, db_path=db_path)
+
+        out = tmp_path / "none_window.csv"
+        export_csv(records, out)
+
+        with open(out) as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+        assert rows[0]["best_window_start"] == ""
+        assert rows[0]["best_window_end"] == ""
+        assert rows[0]["best_window_reason"] == "No favorable window"
 
 
 class TestPurgeOldRecords:

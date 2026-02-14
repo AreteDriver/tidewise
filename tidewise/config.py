@@ -63,6 +63,7 @@ class TideWiseConfig:
     preferences: PreferencesConfig = field(default_factory=PreferencesConfig)
     notifications: NotificationConfig = field(default_factory=NotificationConfig)
     history: HistoryConfig = field(default_factory=HistoryConfig)
+    profiles: dict[str, dict] = field(default_factory=dict)
 
 
 _CONFIG_SEARCH_PATHS = [
@@ -143,10 +144,13 @@ def _parse_config(path: Path) -> TideWiseConfig:
         retention_days=int(history_raw.get("retention_days", HistoryConfig.retention_days)),
     )
 
+    profiles = raw.get("profiles", {})
+
     return TideWiseConfig(
         location=location,
         stations=stations,
         preferences=preferences,
         notifications=notifications,
         history=history,
+        profiles=profiles,
     )

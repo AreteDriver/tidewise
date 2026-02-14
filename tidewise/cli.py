@@ -9,7 +9,7 @@ from pathlib import Path
 import click
 from rich.console import Console
 
-from tidewise.config import TideWiseConfig, load_config
+from tidewise.config import LocationConfig, StationConfig, TideWiseConfig, load_config
 
 console = Console()
 
@@ -22,11 +22,43 @@ console = Console()
     default=None,
     help="Path to config file",
 )
+@click.option(
+    "--profile",
+    "profile_name",
+    default=None,
+    help="Use a named location profile from config",
+)
 @click.pass_context
-def main(ctx: click.Context, config_path: Path | None) -> None:
+def main(ctx: click.Context, config_path: Path | None, profile_name: str | None) -> None:
     """TideWise — Personal fishing intelligence."""
     ctx.ensure_object(dict)
-    ctx.obj["config"] = load_config(config_path)
+    cfg = load_config(config_path)
+
+    if profile_name is not None:
+        if profile_name not in cfg.profiles:
+            available = ", ".join(sorted(cfg.profiles)) if cfg.profiles else "none defined"
+            raise click.BadParameter(
+                f"Profile '{profile_name}' not found. Available: {available}",
+                param_hint="'--profile'",
+            )
+        profile = cfg.profiles[profile_name]
+        if "location" in profile:
+            loc = profile["location"]
+            cfg.location = LocationConfig(
+                name=loc.get("name", cfg.location.name),
+                latitude=loc.get("latitude", cfg.location.latitude),
+                longitude=loc.get("longitude", cfg.location.longitude),
+                timezone=loc.get("timezone", cfg.location.timezone),
+            )
+        if "stations" in profile:
+            st = profile["stations"]
+            cfg.stations = StationConfig(
+                tide=st.get("tide", cfg.stations.tide),
+                water_temp=st.get("water_temp", cfg.stations.water_temp),
+                usgs_gauge=st.get("usgs_gauge", cfg.stations.usgs_gauge),
+            )
+
+    ctx.obj["config"] = cfg
 
 
 @main.command()
@@ -286,12 +318,18 @@ def watch(ctx: click.Context, interval: int) -> None:
 
 @main.command()
 @click.option("--days", default=30, help="Number of days to show")
+@click.option(
+    "--export",
+    "export_path",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Export history to CSV file",
+)
 @click.pass_context
-def history(ctx: click.Context, days: int) -> None:
+def history(ctx: click.Context, days: int, export_path: Path | None) -> None:
     """Show historical fishing scores and trends."""
     cfg: TideWiseConfig = ctx.obj["config"]
 
-    from tidewise.display.terminal import render_score_history
     from tidewise.history import get_recent_scores, purge_old_records
 
     records = get_recent_scores(days=days, location=cfg.location.name)
@@ -300,6 +338,15 @@ def history(ctx: click.Context, days: int) -> None:
     if not records:
         console.print("[dim]No history yet. Run 'tidewise today' or 'tidewise score'.[/dim]")
         return
+
+    if export_path is not None:
+        from tidewise.history import export_csv
+
+        export_csv(records, export_path)
+        console.print(f"[green]Exported {len(records)} records to {export_path}[/green]")
+        return
+
+    from tidewise.display.terminal import render_score_history
 
     render_score_history(records, console)
 
