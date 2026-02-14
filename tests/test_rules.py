@@ -20,6 +20,7 @@ from tidewise.scoring.rules import (
     score_pressure,
     score_solunar,
     score_tide,
+    score_water_temp,
     score_wind,
 )
 
@@ -298,6 +299,62 @@ class TestScoreSolunar:
         now = datetime(2026, 3, 15, 3, 0, tzinfo=UTC)
         score, _ = score_solunar(solunar, now)
         assert score == 0.4
+
+
+class TestScoreWaterTemp:
+    def test_very_cold(self):
+        score, detail = score_water_temp(35.0)
+        assert score == 0.1
+        assert "very cold" in detail.lower()
+
+    def test_cold(self):
+        score, detail = score_water_temp(44.0)
+        assert score == 0.4
+        assert "cold" in detail.lower()
+
+    def test_cool(self):
+        score, detail = score_water_temp(52.0)
+        assert score == 0.7
+        assert "cool" in detail.lower()
+
+    def test_ideal(self):
+        score, detail = score_water_temp(60.0)
+        assert score == 1.0
+        assert "ideal" in detail.lower()
+
+    def test_warm(self):
+        score, detail = score_water_temp(68.0)
+        assert score == 0.7
+        assert "warm" in detail.lower()
+
+    def test_hot(self):
+        score, detail = score_water_temp(78.0)
+        assert score == 0.3
+        assert "hot" in detail.lower()
+
+    def test_boundary_40(self):
+        score, _ = score_water_temp(40.0)
+        assert score == 0.4
+
+    def test_boundary_48(self):
+        score, _ = score_water_temp(48.0)
+        assert score == 0.7
+
+    def test_boundary_55(self):
+        score, _ = score_water_temp(55.0)
+        assert score == 1.0
+
+    def test_boundary_65(self):
+        score, _ = score_water_temp(65.0)
+        assert score == 1.0
+
+    def test_boundary_72(self):
+        score, _ = score_water_temp(72.0)
+        assert score == 0.7
+
+    def test_boundary_above_72(self):
+        score, _ = score_water_temp(72.1)
+        assert score == 0.3
 
 
 class TestMoonPhaseBonus:

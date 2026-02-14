@@ -104,6 +104,16 @@ class SolunarData:
     moonset: datetime | None
 
 
+# --- Water Temperature Models ---
+
+
+@dataclass(frozen=True)
+class WaterTempData:
+    temperature_f: float
+    timestamp: datetime
+    station_id: str
+
+
 # --- Scoring Models ---
 
 

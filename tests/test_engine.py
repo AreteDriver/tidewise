@@ -88,6 +88,71 @@ class TestCalculateScore:
         )
         assert result.best_window_reason != ""
 
+    def test_seven_factors_with_water_temp(
+        self, sample_tide_data, sample_weather_data, sample_solunar_data, sample_water_temp_data
+    ):
+        now = datetime(2026, 3, 15, 6, 0, tzinfo=UTC)
+        result = calculate_score(
+            ScoreWeights(),
+            sample_tide_data,
+            sample_weather_data,
+            sample_solunar_data,
+            now,
+            water_temp=sample_water_temp_data,
+        )
+        factor_names = {f.name for f in result.factors}
+        assert "water_temp" in factor_names
+        assert len(result.factors) == 7
+
+    def test_six_factors_without_water_temp(
+        self, sample_tide_data, sample_weather_data, sample_solunar_data
+    ):
+        """Backward compat — no water temp data, 6 factors."""
+        now = datetime(2026, 3, 15, 6, 0, tzinfo=UTC)
+        result = calculate_score(
+            ScoreWeights(),
+            sample_tide_data,
+            sample_weather_data,
+            sample_solunar_data,
+            now,
+        )
+        factor_names = {f.name for f in result.factors}
+        assert "water_temp" not in factor_names
+        assert len(result.factors) == 6
+
+    def test_weight_normalization(
+        self, sample_tide_data, sample_weather_data, sample_solunar_data, sample_water_temp_data
+    ):
+        """Weights summing to != 1.0 still produce valid 1-10 score."""
+        now = datetime(2026, 3, 15, 6, 0, tzinfo=UTC)
+        # Default weights sum to 1.10 with water_temp
+        result = calculate_score(
+            ScoreWeights(),
+            sample_tide_data,
+            sample_weather_data,
+            sample_solunar_data,
+            now,
+            water_temp=sample_water_temp_data,
+        )
+        assert 1.0 <= result.composite <= 10.0
+
+    def test_water_temp_zero_weight_excluded(
+        self, sample_tide_data, sample_weather_data, sample_solunar_data, sample_water_temp_data
+    ):
+        """Water temp with weight=0 should not appear in factors."""
+        now = datetime(2026, 3, 15, 6, 0, tzinfo=UTC)
+        weights = ScoreWeights(water_temp=0.0)
+        result = calculate_score(
+            weights,
+            sample_tide_data,
+            sample_weather_data,
+            sample_solunar_data,
+            now,
+            water_temp=sample_water_temp_data,
+        )
+        factor_names = {f.name for f in result.factors}
+        assert "water_temp" not in factor_names
+
 
 class TestFindBestWindow:
     def test_upcoming_major_period(self, sample_tide_data, sample_solunar_data):

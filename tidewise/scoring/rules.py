@@ -180,6 +180,22 @@ def score_solunar(solunar: SolunarData, now: datetime) -> tuple[float, str]:
     return min(1.0, round(score, 2)), detail
 
 
+def score_water_temp(temp_f: float) -> tuple[float, str]:
+    """Score water temperature for fishing quality (Pacific Northwest focused)."""
+    if temp_f < 40:
+        return 0.1, f"Very cold water ({temp_f:.0f}°F) — minimal fish activity"
+    elif temp_f < 48:
+        return 0.4, f"Cold water ({temp_f:.0f}°F) — slow bite"
+    elif temp_f < 55:
+        return 0.7, f"Cool water ({temp_f:.0f}°F) — moderate activity"
+    elif temp_f <= 65:
+        return 1.0, f"Ideal temperature ({temp_f:.0f}°F) — peak activity"
+    elif temp_f <= 72:
+        return 0.7, f"Warm water ({temp_f:.0f}°F) — fish go deep"
+    else:
+        return 0.3, f"Hot water ({temp_f:.0f}°F) — low oxygen, lethargic fish"
+
+
 def _moon_phase_bonus(phase: MoonPhase) -> float:
     """Bonus score for favorable moon phases."""
     if phase in (MoonPhase.NEW_MOON, MoonPhase.FULL_MOON):

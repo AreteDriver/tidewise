@@ -14,10 +14,17 @@ def runner():
 
 
 @pytest.fixture
-def mock_sources(sample_tide_data, sample_weather_data, sample_solunar_data):
-    """Patch _fetch_all_sources to return sample data."""
+def mock_sources(
+    sample_tide_data, sample_weather_data, sample_solunar_data, sample_water_temp_data
+):
+    """Patch _fetch_all_sources to return sample data (4-tuple)."""
     with patch("tidewise.cli._fetch_all_sources") as mock:
-        mock.return_value = (sample_tide_data, sample_weather_data, sample_solunar_data)
+        mock.return_value = (
+            sample_tide_data,
+            sample_weather_data,
+            sample_solunar_data,
+            sample_water_temp_data,
+        )
         yield mock
 
 
@@ -82,6 +89,28 @@ class TestBestCommand:
         with patch("tidewise.cli._fetch_all_sources", side_effect=RuntimeError("fail")):
             result = runner.invoke(main, ["best", "--days", "2"])
             assert "Could not fetch" in result.output or "Skipping" in result.output
+
+
+class TestWeekCommand:
+    def test_week_success(self, runner, mock_sources):
+        result = runner.invoke(main, ["week"])
+        assert result.exit_code == 0
+        assert "Weekly Fishing Forecast" in result.output
+
+    def test_week_custom_days(self, runner, mock_sources):
+        result = runner.invoke(main, ["week", "--days", "3"])
+        assert result.exit_code == 0
+        assert "Weekly Fishing Forecast" in result.output
+
+    def test_week_all_fail(self, runner):
+        with patch("tidewise.cli._fetch_all_sources", side_effect=RuntimeError("fail")):
+            result = runner.invoke(main, ["week", "--days", "2"])
+            assert "Could not fetch" in result.output or "Skipping" in result.output
+
+    def test_week_help(self, runner):
+        result = runner.invoke(main, ["week", "--help"])
+        assert result.exit_code == 0
+        assert "--days" in result.output
 
 
 class TestNotifyCommand:

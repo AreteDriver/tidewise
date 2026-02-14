@@ -11,6 +11,7 @@ from tidewise.models import (
     SolunarData,
     TideData,
     TideDirection,
+    WaterTempData,
     WeatherData,
 )
 from tidewise.scoring.rules import (
@@ -19,6 +20,7 @@ from tidewise.scoring.rules import (
     score_pressure,
     score_solunar,
     score_tide,
+    score_water_temp,
     score_wind,
 )
 from tidewise.scoring.suggestions import generate_suggestions
@@ -30,10 +32,12 @@ def calculate_score(
     weather: WeatherData,
     solunar: SolunarData,
     now: datetime,
+    water_temp: WaterTempData | None = None,
 ) -> FishingScore:
     """Calculate composite fishing score from all data sources.
 
-    Weighted sum of individual factor scores, scaled to 1-10.
+    Weighted sum of individual factor scores, normalized to 1-10 scale.
+    Water temp is optional — scoring degrades gracefully without it.
     """
     # Score each factor
     pressure_score, pressure_detail = score_pressure(weather.pressure_trend, weather.pressure_rate)
@@ -52,8 +56,17 @@ def calculate_score(
         FactorScore("precipitation", precip_score, weights.precipitation, precip_detail),
     ]
 
-    # Weighted sum → 1-10 scale
-    composite = sum(f.score * f.weight for f in factors) * 10
+    # Only include water_temp if data available AND weight > 0
+    if water_temp is not None and weights.water_temp > 0:
+        wt_score, wt_detail = score_water_temp(water_temp.temperature_f)
+        factors.append(FactorScore("water_temp", wt_score, weights.water_temp, wt_detail))
+
+    # Normalize weights so composite is always on 1-10 scale
+    total_weight = sum(f.weight for f in factors)
+    if total_weight > 0:
+        composite = sum(f.score * f.weight for f in factors) / total_weight * 10
+    else:
+        composite = 1.0
     composite = round(max(1.0, min(10.0, composite)), 1)
 
     # Find best window

@@ -19,6 +19,7 @@ preferences:
     wind: 0.15
     cloud: 0.10
     precipitation: 0.05
+    water_temp: 0.10         # optional — normalized with other weights
 
 notifications:
   enabled: true

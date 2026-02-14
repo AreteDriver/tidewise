@@ -21,6 +21,7 @@ from tidewise.models import (
     TideDirection,
     TidePrediction,
     TideType,
+    WaterTempData,
     WeatherData,
 )
 
@@ -134,6 +135,15 @@ def sample_solunar_data() -> SolunarData:
     )
 
 
+@pytest.fixture
+def sample_water_temp_data() -> WaterTempData:
+    return WaterTempData(
+        temperature_f=52.0,
+        timestamp=datetime(2026, 3, 15, 5, 30, tzinfo=UTC),
+        station_id="9439040",
+    )
+
+
 # --- Mock API Responses ---
 
 NOAA_TIDE_RESPONSE = {
@@ -143,6 +153,11 @@ NOAA_TIDE_RESPONSE = {
         {"t": "2026-03-15 15:58", "v": "2.300", "type": "L"},
         {"t": "2026-03-15 22:10", "v": "7.500", "type": "H"},
     ]
+}
+
+NOAA_WATER_TEMP_RESPONSE = {
+    "metadata": {"id": "9439040", "name": "Astoria"},
+    "data": [{"t": "2026-03-15 05:30", "v": "52.0", "f": "0,0,0"}],
 }
 
 OPEN_METEO_RESPONSE = {

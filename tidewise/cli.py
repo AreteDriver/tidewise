@@ -67,7 +67,7 @@ def today(ctx: click.Context) -> None:
     """Show today's fishing score and conditions."""
     cfg: TideWiseConfig = ctx.obj["config"]
     try:
-        tide, weather, solunar = _fetch_all_sources(cfg)
+        tide, weather, solunar, water_temp = _fetch_all_sources(cfg)
     except Exception as e:
         console.print(f"[red]Error fetching data: {e}[/red]")
         raise SystemExit(1) from None
@@ -75,11 +75,15 @@ def today(ctx: click.Context) -> None:
     from tidewise.scoring.engine import calculate_score
 
     now = datetime.now(UTC)
-    score = calculate_score(cfg.preferences.score_weights, tide, weather, solunar, now)
+    score = calculate_score(
+        cfg.preferences.score_weights, tide, weather, solunar, now, water_temp=water_temp
+    )
 
     from tidewise.display.terminal import render_today_summary
 
-    render_today_summary(score, tide, weather, solunar, console, tz_name=cfg.location.timezone)
+    render_today_summary(
+        score, tide, weather, solunar, console, tz_name=cfg.location.timezone, water_temp=water_temp
+    )
 
     if cfg.history.enabled:
         from tidewise.history import log_score as _log
@@ -127,18 +131,28 @@ def score(ctx: click.Context, date_str: str | None) -> None:
         target = datetime.now(UTC)
 
     try:
-        tide, weather, solunar = _fetch_all_sources(cfg, target)
+        tide, weather, solunar, water_temp = _fetch_all_sources(cfg, target)
     except Exception as e:
         console.print(f"[red]Error fetching data: {e}[/red]")
         raise SystemExit(1) from None
 
     from tidewise.scoring.engine import calculate_score
 
-    result = calculate_score(cfg.preferences.score_weights, tide, weather, solunar, target)
+    result = calculate_score(
+        cfg.preferences.score_weights, tide, weather, solunar, target, water_temp=water_temp
+    )
 
     from tidewise.display.terminal import render_today_summary
 
-    render_today_summary(result, tide, weather, solunar, console, tz_name=cfg.location.timezone)
+    render_today_summary(
+        result,
+        tide,
+        weather,
+        solunar,
+        console,
+        tz_name=cfg.location.timezone,
+        water_temp=water_temp,
+    )
 
     if cfg.history.enabled:
         from tidewise.history import log_score as _log
@@ -162,14 +176,56 @@ def best(ctx: click.Context, days: int) -> None:
     for i in range(days):
         target = base + timedelta(days=i)
         try:
-            tide, weather, solunar = _fetch_all_sources(cfg, target)
-            result = calculate_score(cfg.preferences.score_weights, tide, weather, solunar, target)
+            tide, weather, solunar, water_temp = _fetch_all_sources(cfg, target)
+            result = calculate_score(
+                cfg.preferences.score_weights,
+                tide,
+                weather,
+                solunar,
+                target,
+                water_temp=water_temp,
+            )
             results.append((target, result))
         except Exception as e:
             console.print(f"[yellow]Skipping {target.strftime('%m/%d')}: {e}[/yellow]")
 
     if results:
         render_best_windows(results, console)
+    else:
+        console.print("[red]Could not fetch data for any dates.[/red]")
+
+
+@main.command()
+@click.option("--days", default=7, help="Number of days to forecast")
+@click.pass_context
+def week(ctx: click.Context, days: int) -> None:
+    """Show multi-day fishing forecast."""
+    cfg: TideWiseConfig = ctx.obj["config"]
+
+    from tidewise.display.terminal import render_week_forecast
+    from tidewise.scoring.engine import calculate_score
+
+    results: list[tuple[datetime, object]] = []
+    base = datetime.now(UTC).replace(hour=12, minute=0, second=0, microsecond=0)
+
+    for i in range(days):
+        target = base + timedelta(days=i)
+        try:
+            tide, weather, solunar, water_temp = _fetch_all_sources(cfg, target)
+            result = calculate_score(
+                cfg.preferences.score_weights,
+                tide,
+                weather,
+                solunar,
+                target,
+                water_temp=water_temp,
+            )
+            results.append((target, result))
+        except Exception as e:
+            console.print(f"[yellow]Skipping {target.strftime('%m/%d')}: {e}[/yellow]")
+
+    if results:
+        render_week_forecast(results, console)
     else:
         console.print("[red]Could not fetch data for any dates.[/red]")
 
@@ -189,13 +245,22 @@ def dashboard(ctx: click.Context, interval: int) -> None:
     try:
         while True:
             try:
-                tide, weather, solunar = _fetch_all_sources(cfg)
+                tide, weather, solunar, water_temp = _fetch_all_sources(cfg)
                 now = datetime.now(UTC)
-                result = calculate_score(cfg.preferences.score_weights, tide, weather, solunar, now)
+                result = calculate_score(
+                    cfg.preferences.score_weights,
+                    tide,
+                    weather,
+                    solunar,
+                    now,
+                    water_temp=water_temp,
+                )
                 console.clear()
                 console.print(f"[dim]Last updated: {now.strftime('%I:%M:%S %p')}[/dim]")
                 tz = cfg.location.timezone
-                render_today_summary(result, tide, weather, solunar, console, tz_name=tz)
+                render_today_summary(
+                    result, tide, weather, solunar, console, tz_name=tz, water_temp=water_temp
+                )
             except Exception as e:
                 console.print(f"[red]Refresh error: {e}[/red]")
 
@@ -218,7 +283,7 @@ def notify(ctx: click.Context, force: bool) -> None:
         return
 
     try:
-        tide, weather, solunar = _fetch_all_sources(cfg)
+        tide, weather, solunar, water_temp = _fetch_all_sources(cfg)
     except Exception as e:
         console.print(f"[red]Error fetching data: {e}[/red]")
         raise SystemExit(1) from None
@@ -232,7 +297,9 @@ def notify(ctx: click.Context, force: bool) -> None:
     from tidewise.scoring.engine import calculate_score
 
     now = datetime.now(UTC)
-    score = calculate_score(cfg.preferences.score_weights, tide, weather, solunar, now)
+    score = calculate_score(
+        cfg.preferences.score_weights, tide, weather, solunar, now, water_temp=water_temp
+    )
 
     if not force and not should_notify(
         score.composite, cfg.notifications.alert_score, cfg.notifications.cooldown_minutes
@@ -282,9 +349,16 @@ def watch(ctx: click.Context, interval: int) -> None:
     try:
         while True:
             try:
-                tide, weather, solunar = _fetch_all_sources(cfg)
+                tide, weather, solunar, water_temp = _fetch_all_sources(cfg)
                 now = datetime.now(UTC)
-                score = calculate_score(cfg.preferences.score_weights, tide, weather, solunar, now)
+                score = calculate_score(
+                    cfg.preferences.score_weights,
+                    tide,
+                    weather,
+                    solunar,
+                    now,
+                    water_temp=water_temp,
+                )
                 console.print(
                     f"[dim]{now.strftime('%H:%M:%S')} — Score: {score.composite:.1f}/10[/dim]"
                 )
@@ -352,9 +426,9 @@ def history(ctx: click.Context, days: int, export_path: Path | None) -> None:
 
 
 def _fetch_all_sources(cfg: TideWiseConfig, target: datetime | None = None) -> tuple:
-    """Fetch tide + weather concurrently, solunar synchronously.
+    """Fetch tide + weather + water temp concurrently, solunar synchronously.
 
-    Returns (TideData, WeatherData, SolunarData).
+    Returns (TideData, WeatherData, SolunarData, WaterTempData | None).
     """
     if target is None:
         target = datetime.now(UTC)
@@ -372,6 +446,7 @@ def _fetch_all_sources(cfg: TideWiseConfig, target: datetime | None = None) -> t
         import httpx
 
         from tidewise.sources.tides import fetch_tides
+        from tidewise.sources.water_temp import fetch_water_temp
         from tidewise.sources.weather import fetch_weather
 
         async with httpx.AsyncClient() as client:
@@ -382,8 +457,9 @@ def _fetch_all_sources(cfg: TideWiseConfig, target: datetime | None = None) -> t
                 target,
                 client=client,
             )
-            return await asyncio.gather(tide_task, weather_task)
+            water_temp_task = fetch_water_temp(cfg.stations.water_temp, client=client)
+            return await asyncio.gather(tide_task, weather_task, water_temp_task)
 
-    tide, weather = asyncio.run(_fetch_async())
+    tide, weather, water_temp = asyncio.run(_fetch_async())
 
-    return tide, weather, solunar
+    return tide, weather, solunar, water_temp

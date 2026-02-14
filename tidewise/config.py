@@ -31,6 +31,7 @@ class ScoreWeights:
     wind: float = 0.15
     cloud: float = 0.10
     precipitation: float = 0.05
+    water_temp: float = 0.10
 
 
 @dataclass
@@ -119,6 +120,7 @@ def _parse_config(path: Path) -> TideWiseConfig:
         wind=weights_raw.get("wind", ScoreWeights.wind),
         cloud=weights_raw.get("cloud", ScoreWeights.cloud),
         precipitation=weights_raw.get("precipitation", ScoreWeights.precipitation),
+        water_temp=weights_raw.get("water_temp", ScoreWeights.water_temp),
     )
     preferences = PreferencesConfig(
         units=prefs_raw.get("units", PreferencesConfig.units),

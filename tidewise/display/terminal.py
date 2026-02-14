@@ -17,6 +17,7 @@ from tidewise.models import (
     SolunarData,
     TideData,
     TideDirection,
+    WaterTempData,
     WeatherData,
 )
 
@@ -28,6 +29,7 @@ def render_today_summary(
     solunar: SolunarData,
     console: Console | None = None,
     tz_name: str | None = None,
+    water_temp: WaterTempData | None = None,
 ) -> None:
     """Render concise daily summary to terminal."""
     if console is None:
@@ -38,6 +40,8 @@ def render_today_summary(
     console.print()
     console.print(_build_tide_panel(tide, tz_name=tz_name))
     console.print(_build_weather_panel(weather))
+    if water_temp is not None:
+        console.print(_build_water_temp_panel(water_temp))
     console.print(_build_solunar_panel(solunar))
     console.print()
     console.print(_build_suggestions_panel(score))
@@ -102,6 +106,67 @@ def render_best_windows(
             window,
             score.best_window_reason,
         )
+
+    console.print()
+    console.print(table)
+    console.print()
+
+
+def render_week_forecast(
+    results: list[tuple[datetime, FishingScore]],
+    console: Console | None = None,
+) -> None:
+    """Render multi-day fishing forecast as a table."""
+    if console is None:
+        console = Console()
+
+    table = Table(title="Weekly Fishing Forecast", show_lines=True)
+    table.add_column("Day", style="cyan")
+    table.add_column("Score", justify="right", style="bold")
+    table.add_column("Best Window")
+    table.add_column("Top Factor")
+    table.add_column("Trend")
+
+    prev_score: float | None = None
+    for date, score in results:
+        color = _score_color(score.composite)
+
+        # Best window
+        window = ""
+        if score.best_window_start and score.best_window_end:
+            window = (
+                f"{score.best_window_start.strftime('%H:%M')} - "
+                f"{score.best_window_end.strftime('%H:%M')}"
+            )
+        elif score.best_window_start:
+            window = f"From {score.best_window_start.strftime('%H:%M')}"
+
+        # Top factor (highest weighted score)
+        top_factor = ""
+        if score.factors:
+            best_f = max(score.factors, key=lambda f: f.score * f.weight)
+            top_factor = f"{best_f.name} ({best_f.score:.2f})"
+
+        # Trend arrow vs previous day
+        if prev_score is not None:
+            diff = score.composite - prev_score
+            if diff > 0.5:
+                trend = Text("\u2191", style="green")
+            elif diff < -0.5:
+                trend = Text("\u2193", style="red")
+            else:
+                trend = Text("\u2192", style="dim")
+        else:
+            trend = Text("-", style="dim")
+
+        table.add_row(
+            date.strftime("%a %m/%d"),
+            Text(f"{score.composite:.1f}", style=color),
+            window,
+            top_factor,
+            trend,
+        )
+        prev_score = score.composite
 
     console.print()
     console.print(table)
@@ -234,6 +299,27 @@ def _build_weather_panel(weather: WeatherData) -> Panel:
     text.append(f"{weather.precipitation_mm:.1f} mm\n")
 
     return Panel(text, title="[bold]Weather[/bold]", border_style="yellow")
+
+
+def _build_water_temp_panel(water_temp: WaterTempData) -> Panel:
+    """Build the water temperature info panel."""
+    temp = water_temp.temperature_f
+    if temp < 50:
+        color = "blue"
+    elif temp <= 65:
+        color = "green"
+    else:
+        color = "red"
+
+    text = Text()
+    text.append("  Water Temp: ", style="dim")
+    text.append(f"{temp:.1f}°F", style=f"bold {color}")
+    text.append("\n  Station: ", style="dim")
+    text.append(water_temp.station_id)
+    text.append("\n  Observed: ", style="dim")
+    text.append(f"{water_temp.timestamp.strftime('%Y-%m-%d %H:%M')} UTC\n")
+
+    return Panel(text, title="[bold]Water Temperature[/bold]", border_style=color)
 
 
 def _build_solunar_panel(solunar: SolunarData) -> Panel:
