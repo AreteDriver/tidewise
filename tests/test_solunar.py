@@ -1,6 +1,6 @@
 """Tests for solunar engine — mocked skyfield to avoid downloading ephemeris."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -59,21 +59,27 @@ class TestMoonIllumination:
         mock_angle = MagicMock()
         mock_angle.degrees = 0.0
         with patch("tidewise.sources.solunar.almanac.moon_phase", return_value=mock_angle):
-            result = _compute_moon_illumination(MagicMock(), MagicMock(), datetime(2026, 1, 1, tzinfo=timezone.utc))
+            result = _compute_moon_illumination(
+                MagicMock(), MagicMock(), datetime(2026, 1, 1, tzinfo=UTC)
+            )
             assert result == 0.0
 
     def test_full_moon_illumination(self):
         mock_angle = MagicMock()
         mock_angle.degrees = 180.0
         with patch("tidewise.sources.solunar.almanac.moon_phase", return_value=mock_angle):
-            result = _compute_moon_illumination(MagicMock(), MagicMock(), datetime(2026, 1, 1, tzinfo=timezone.utc))
+            result = _compute_moon_illumination(
+                MagicMock(), MagicMock(), datetime(2026, 1, 1, tzinfo=UTC)
+            )
             assert result == 1.0
 
     def test_quarter_illumination(self):
         mock_angle = MagicMock()
         mock_angle.degrees = 90.0
         with patch("tidewise.sources.solunar.almanac.moon_phase", return_value=mock_angle):
-            result = _compute_moon_illumination(MagicMock(), MagicMock(), datetime(2026, 1, 1, tzinfo=timezone.utc))
+            result = _compute_moon_illumination(
+                MagicMock(), MagicMock(), datetime(2026, 1, 1, tzinfo=UTC)
+            )
             assert result == 0.5
 
 
@@ -82,7 +88,7 @@ class TestComputeMoonPhase:
         mock_angle = MagicMock()
         mock_angle.degrees = 180.0
         with patch("tidewise.sources.solunar.almanac.moon_phase", return_value=mock_angle):
-            result = _compute_moon_phase(MagicMock(), MagicMock(), datetime(2026, 1, 1, tzinfo=timezone.utc))
+            result = _compute_moon_phase(MagicMock(), MagicMock(), datetime(2026, 1, 1, tzinfo=UTC))
             assert result == MoonPhase.FULL_MOON
 
 
@@ -119,35 +125,55 @@ class TestGetSolunarData:
         sunrise_time = _make_skyfield_time(base_utc.replace(hour=14, minute=20))
         sunset_time = _make_skyfield_time(base_utc.replace(hour=1, minute=30))
 
-        return (eph, ts, mock_angle, transit_times, transit_events,
-                rise_time, set_time, sunrise_time, sunset_time)
+        return (
+            eph,
+            ts,
+            mock_angle,
+            transit_times,
+            transit_events,
+            rise_time,
+            set_time,
+            sunrise_time,
+            sunset_time,
+        )
 
     @patch("tidewise.sources.solunar._get_ephemeris")
     def test_full_solunar_calculation(self, mock_get_eph):
-        (eph, ts, mock_angle, transit_times, transit_events,
-         rise_time, set_time, sunrise_time, sunset_time) = self._build_mocks()
+        (
+            eph,
+            ts,
+            mock_angle,
+            transit_times,
+            transit_events,
+            rise_time,
+            set_time,
+            sunrise_time,
+            sunset_time,
+        ) = self._build_mocks()
         mock_get_eph.return_value = (eph, ts)
 
         with (
             patch("tidewise.sources.solunar.almanac.moon_phase", return_value=mock_angle),
-            patch("tidewise.sources.solunar.almanac.meridian_transits") as mock_meridian,
-            patch("tidewise.sources.solunar.almanac.find_discrete",
-                  return_value=(transit_times, transit_events)),
+            patch("tidewise.sources.solunar.almanac.meridian_transits"),
+            patch(
+                "tidewise.sources.solunar.almanac.find_discrete",
+                return_value=(transit_times, transit_events),
+            ),
             patch("tidewise.sources.solunar.almanac.find_risings") as mock_find_risings,
             patch("tidewise.sources.solunar.almanac.find_settings") as mock_find_settings,
         ):
             # find_risings/find_settings are called for moon (minor), sun, moon (rise/set times)
             # moon rise (minor), sun rise, moon rise (times)
             mock_find_risings.side_effect = [
-                ([rise_time], [True]),   # moon rise (minor periods)
+                ([rise_time], [True]),  # moon rise (minor periods)
                 ([sunrise_time], [True]),  # sun rise
-                ([rise_time], [True]),   # moon rise (times)
+                ([rise_time], [True]),  # moon rise (times)
             ]
             # moon set (minor), sun set, moon set (times)
             mock_find_settings.side_effect = [
-                ([set_time], [True]),    # moon set (minor periods)
-                ([sunset_time], [True]),   # sun set
-                ([set_time], [True]),    # moon set (times)
+                ([set_time], [True]),  # moon set (minor periods)
+                ([sunset_time], [True]),  # sun set
+                ([set_time], [True]),  # moon set (times)
             ]
 
             result = get_solunar_data(
@@ -172,27 +198,30 @@ class TestGetSolunarData:
     @patch("tidewise.sources.solunar._get_ephemeris")
     def test_no_moonrise_edge_case(self, mock_get_eph):
         """Handle days with no moonrise (e.g. polar regions)."""
-        (eph, ts, mock_angle, transit_times, transit_events,
-         _, _, sunrise_time, sunset_time) = self._build_mocks()
+        (eph, ts, mock_angle, transit_times, transit_events, _, _, sunrise_time, sunset_time) = (
+            self._build_mocks()
+        )
         mock_get_eph.return_value = (eph, ts)
 
         with (
             patch("tidewise.sources.solunar.almanac.moon_phase", return_value=mock_angle),
             patch("tidewise.sources.solunar.almanac.meridian_transits"),
-            patch("tidewise.sources.solunar.almanac.find_discrete",
-                  return_value=(transit_times, transit_events)),
+            patch(
+                "tidewise.sources.solunar.almanac.find_discrete",
+                return_value=(transit_times, transit_events),
+            ),
             patch("tidewise.sources.solunar.almanac.find_risings") as mock_find_risings,
             patch("tidewise.sources.solunar.almanac.find_settings") as mock_find_settings,
         ):
             mock_find_risings.side_effect = [
-                ([], []),              # moon rise (minor) — none
+                ([], []),  # moon rise (minor) — none
                 ([sunrise_time], [True]),  # sun rise
-                ([], []),              # moon rise (times) — none
+                ([], []),  # moon rise (times) — none
             ]
             mock_find_settings.side_effect = [
-                ([], []),              # moon set (minor) — none
-                ([sunset_time], [True]),   # sun set
-                ([], []),              # moon set (times) — none
+                ([], []),  # moon set (minor) — none
+                ([sunset_time], [True]),  # sun set
+                ([], []),  # moon set (times) — none
             ]
 
             result = get_solunar_data(
@@ -209,15 +238,17 @@ class TestGetSolunarData:
     @patch("tidewise.sources.solunar._get_ephemeris")
     def test_minor_periods_duration(self, mock_get_eph):
         """Minor periods should be ~1h (30min each side)."""
-        (eph, ts, mock_angle, _, _,
-         rise_time, set_time, sunrise_time, sunset_time) = self._build_mocks()
+        (eph, ts, mock_angle, _, _, rise_time, set_time, sunrise_time, sunset_time) = (
+            self._build_mocks()
+        )
         mock_get_eph.return_value = (eph, ts)
 
         with (
             patch("tidewise.sources.solunar.almanac.moon_phase", return_value=mock_angle),
             patch("tidewise.sources.solunar.almanac.meridian_transits"),
-            patch("tidewise.sources.solunar.almanac.find_discrete",
-                  return_value=([], [])),  # no major transits
+            patch(
+                "tidewise.sources.solunar.almanac.find_discrete", return_value=([], [])
+            ),  # no major transits
             patch("tidewise.sources.solunar.almanac.find_risings") as mock_find_risings,
             patch("tidewise.sources.solunar.almanac.find_settings") as mock_find_settings,
         ):
@@ -247,23 +278,31 @@ class TestGetSolunarData:
     @patch("tidewise.sources.solunar._get_ephemeris")
     def test_non_real_risings_filtered(self, mock_get_eph):
         """Non-real horizon crossings (transits without touching horizon) are filtered."""
-        (eph, ts, mock_angle, transit_times, transit_events,
-         rise_time, set_time, sunrise_time, sunset_time) = self._build_mocks()
+        (
+            eph,
+            ts,
+            mock_angle,
+            transit_times,
+            transit_events,
+            rise_time,
+            set_time,
+            sunrise_time,
+            sunset_time,
+        ) = self._build_mocks()
         mock_get_eph.return_value = (eph, ts)
 
         with (
             patch("tidewise.sources.solunar.almanac.moon_phase", return_value=mock_angle),
             patch("tidewise.sources.solunar.almanac.meridian_transits"),
-            patch("tidewise.sources.solunar.almanac.find_discrete",
-                  return_value=([], [])),
+            patch("tidewise.sources.solunar.almanac.find_discrete", return_value=([], [])),
             patch("tidewise.sources.solunar.almanac.find_risings") as mock_find_risings,
             patch("tidewise.sources.solunar.almanac.find_settings") as mock_find_settings,
         ):
             # is_real=False means it's a transit, not a real crossing
             mock_find_risings.side_effect = [
-                ([rise_time], [False]),    # moon rise — not real
-                ([sunrise_time], [False]),   # sun rise — not real
-                ([rise_time], [False]),    # moon rise time — not real
+                ([rise_time], [False]),  # moon rise — not real
+                ([sunrise_time], [False]),  # sun rise — not real
+                ([rise_time], [False]),  # moon rise time — not real
             ]
             mock_find_settings.side_effect = [
                 ([set_time], [False]),

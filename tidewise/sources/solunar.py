@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -50,7 +50,7 @@ def get_solunar_data(
 
     # Build time window: local midnight to local midnight+1 day
     local_midnight = datetime(date.year, date.month, date.day, tzinfo=tz)
-    utc_start = local_midnight.astimezone(timezone.utc)
+    utc_start = local_midnight.astimezone(UTC)
     utc_end = utc_start + timedelta(days=1)
 
     t0 = ts.from_datetime(utc_start)
@@ -129,9 +129,9 @@ def _compute_major_periods(eph, ts, location, t0, t1, tz: ZoneInfo) -> list[Solu
     f = almanac.meridian_transits(eph, moon, location)
     times, events = almanac.find_discrete(t0, t1, f)
 
-    for t, event in zip(times, events):
+    for t, _event in zip(times, events, strict=False):
         # event 0 = anti-transit (underfoot), 1 = transit (overhead)
-        peak_utc = t.utc_datetime().replace(tzinfo=timezone.utc)
+        peak_utc = t.utc_datetime().replace(tzinfo=UTC)
         peak_local = peak_utc.astimezone(tz)
         start = peak_local - timedelta(hours=1)
         end = peak_local + timedelta(hours=1)
@@ -154,10 +154,10 @@ def _compute_minor_periods(eph, ts, location, t0, t1, tz: ZoneInfo) -> list[Solu
 
     # Moonrise
     rise_times, rise_is_real = almanac.find_risings(location, moon, t0, t1)
-    for t, is_real in zip(rise_times, rise_is_real):
+    for t, is_real in zip(rise_times, rise_is_real, strict=False):
         if not is_real:
             continue
-        peak_utc = t.utc_datetime().replace(tzinfo=timezone.utc)
+        peak_utc = t.utc_datetime().replace(tzinfo=UTC)
         peak_local = peak_utc.astimezone(tz)
         periods.append(
             SolunarPeriod(
@@ -170,10 +170,10 @@ def _compute_minor_periods(eph, ts, location, t0, t1, tz: ZoneInfo) -> list[Solu
 
     # Moonset
     set_times, set_is_real = almanac.find_settings(location, moon, t0, t1)
-    for t, is_real in zip(set_times, set_is_real):
+    for t, is_real in zip(set_times, set_is_real, strict=False):
         if not is_real:
             continue
-        peak_utc = t.utc_datetime().replace(tzinfo=timezone.utc)
+        peak_utc = t.utc_datetime().replace(tzinfo=UTC)
         peak_local = peak_utc.astimezone(tz)
         periods.append(
             SolunarPeriod(
@@ -195,15 +195,15 @@ def _compute_sun_rise_set(
     sunrise = sunset = None
 
     rise_times, rise_is_real = almanac.find_risings(location, sun, t0, t1)
-    for t, is_real in zip(rise_times, rise_is_real):
+    for t, is_real in zip(rise_times, rise_is_real, strict=False):
         if is_real:
-            sunrise = t.utc_datetime().replace(tzinfo=timezone.utc).astimezone(tz)
+            sunrise = t.utc_datetime().replace(tzinfo=UTC).astimezone(tz)
             break
 
     set_times, set_is_real = almanac.find_settings(location, sun, t0, t1)
-    for t, is_real in zip(set_times, set_is_real):
+    for t, is_real in zip(set_times, set_is_real, strict=False):
         if is_real:
-            sunset = t.utc_datetime().replace(tzinfo=timezone.utc).astimezone(tz)
+            sunset = t.utc_datetime().replace(tzinfo=UTC).astimezone(tz)
             break
 
     return sunrise, sunset
@@ -217,15 +217,15 @@ def _compute_moon_rise_set_times(
     moonrise = moonset = None
 
     rise_times, rise_is_real = almanac.find_risings(location, moon, t0, t1)
-    for t, is_real in zip(rise_times, rise_is_real):
+    for t, is_real in zip(rise_times, rise_is_real, strict=False):
         if is_real:
-            moonrise = t.utc_datetime().replace(tzinfo=timezone.utc).astimezone(tz)
+            moonrise = t.utc_datetime().replace(tzinfo=UTC).astimezone(tz)
             break
 
     set_times, set_is_real = almanac.find_settings(location, moon, t0, t1)
-    for t, is_real in zip(set_times, set_is_real):
+    for t, is_real in zip(set_times, set_is_real, strict=False):
         if is_real:
-            moonset = t.utc_datetime().replace(tzinfo=timezone.utc).astimezone(tz)
+            moonset = t.utc_datetime().replace(tzinfo=UTC).astimezone(tz)
             break
 
     return moonrise, moonset

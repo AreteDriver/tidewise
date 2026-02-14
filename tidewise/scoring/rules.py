@@ -165,9 +165,7 @@ def score_solunar(solunar: SolunarData, now: datetime) -> tuple[float, str]:
 
     # Outside all periods — find next one
     next_period = None
-    for period in sorted(
-        solunar.major_periods + solunar.minor_periods, key=lambda p: p.start
-    ):
+    for period in sorted(solunar.major_periods + solunar.minor_periods, key=lambda p: p.start):
         if period.start > now:
             next_period = period
             break

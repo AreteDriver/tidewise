@@ -1,20 +1,17 @@
 """Tests for data models."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from tidewise.models import (
     FactorScore,
     FishingScore,
     MoonPhase,
     PressureTrend,
-    SolunarData,
     SolunarPeriod,
     SolunarPeriodType,
-    TideData,
     TideDirection,
     TidePrediction,
     TideType,
-    WeatherData,
 )
 
 
@@ -53,7 +50,7 @@ class TestEnums:
 class TestTideModels:
     def test_tide_prediction_frozen(self):
         tp = TidePrediction(
-            time=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            time=datetime(2026, 1, 1, tzinfo=UTC),
             height_ft=5.0,
             type=TideType.HIGH,
         )
@@ -83,7 +80,7 @@ class TestSolunarModels:
         assert 0.0 <= sample_solunar_data.moon_illumination <= 1.0
 
     def test_solunar_period(self):
-        now = datetime(2026, 1, 1, 6, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 1, 1, 6, 0, tzinfo=UTC)
         period = SolunarPeriod(
             type=SolunarPeriodType.MAJOR,
             start=now.replace(hour=5),

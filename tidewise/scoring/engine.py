@@ -9,7 +9,6 @@ from tidewise.models import (
     FactorScore,
     FishingScore,
     SolunarData,
-    SolunarPeriodType,
     TideData,
     TideDirection,
     WeatherData,
@@ -98,8 +97,7 @@ def _find_best_window(
             best_end = period.end
             if tide.current_direction == TideDirection.INCOMING:
                 best_reason = (
-                    f"Solunar major at {period.peak.strftime('%H:%M')} "
-                    f"during incoming tide"
+                    f"Solunar major at {period.peak.strftime('%H:%M')} during incoming tide"
                 )
             else:
                 best_reason = f"Solunar major period at {period.peak.strftime('%H:%M')}"

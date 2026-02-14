@@ -38,15 +38,17 @@ async def fetch_weather(
     params = {
         "latitude": latitude,
         "longitude": longitude,
-        "hourly": ",".join([
-            "temperature_2m",
-            "pressure_msl",
-            "wind_speed_10m",
-            "wind_direction_10m",
-            "wind_gusts_10m",
-            "cloud_cover",
-            "precipitation",
-        ]),
+        "hourly": ",".join(
+            [
+                "temperature_2m",
+                "pressure_msl",
+                "wind_speed_10m",
+                "wind_direction_10m",
+                "wind_gusts_10m",
+                "cloud_cover",
+                "precipitation",
+            ]
+        ),
         "forecast_days": forecast_days,
         "timezone": "auto",
     }
@@ -186,10 +188,22 @@ def _calculate_pressure_trend(
 
 # 16-point compass rose
 _CARDINAL_DIRECTIONS = [
-    "N", "NNE", "NE", "ENE",
-    "E", "ESE", "SE", "SSE",
-    "S", "SSW", "SW", "WSW",
-    "W", "WNW", "NW", "NNW",
+    "N",
+    "NNE",
+    "NE",
+    "ENE",
+    "E",
+    "ESE",
+    "SE",
+    "SSE",
+    "S",
+    "SSW",
+    "SW",
+    "WSW",
+    "W",
+    "WNW",
+    "NW",
+    "NNW",
 ]
 
 

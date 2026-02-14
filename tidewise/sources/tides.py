@@ -116,9 +116,7 @@ def _parse_predictions(raw: list[dict]) -> list[TidePrediction]:
     return predictions
 
 
-def _determine_tide_direction(
-    predictions: list[TidePrediction], now: datetime
-) -> TideDirection:
+def _determine_tide_direction(predictions: list[TidePrediction], now: datetime) -> TideDirection:
     """Determine if the tide is incoming, outgoing, or slack.
 
     Bracket `now` between the two nearest H/L events.
@@ -148,7 +146,9 @@ def _determine_tide_direction(
         # Can't determine — we're outside the prediction range
         if predictions:
             # Use first prediction as reference
-            return TideDirection.INCOMING if predictions[0].type == TideType.HIGH else TideDirection.OUTGOING
+            if predictions[0].type == TideType.HIGH:
+                return TideDirection.INCOMING
+            return TideDirection.OUTGOING
         return TideDirection.SLACK
 
     # Low → High = incoming, High → Low = outgoing

@@ -18,7 +18,6 @@ from tidewise.sources.weather import (
     fetch_weather,
 )
 
-
 HOURLY_DATA = {
     "time": [
         "2026-03-15T03:00",
@@ -167,23 +166,33 @@ class TestFetchWeather:
         respx.get(OPEN_METEO_URL).mock(
             return_value=httpx.Response(200, json={"hourly": HOURLY_DATA})
         )
-        result = await fetch_weather(
-            46.1879, -123.8313, datetime(2026, 3, 15, 6, 0)
-        )
+        result = await fetch_weather(46.1879, -123.8313, datetime(2026, 3, 15, 6, 0))
         assert result.temperature_f > 0
         assert result.pressure_inhg > 0
         assert result.wind_direction in (
-            "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
-            "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW",
+            "N",
+            "NNE",
+            "NE",
+            "ENE",
+            "E",
+            "ESE",
+            "SE",
+            "SSE",
+            "S",
+            "SSW",
+            "SW",
+            "WSW",
+            "W",
+            "WNW",
+            "NW",
+            "NNW",
         )
 
     @respx.mock
     @pytest.mark.asyncio
     async def test_api_error_response(self):
         respx.get(OPEN_METEO_URL).mock(
-            return_value=httpx.Response(
-                200, json={"error": True, "reason": "Invalid params"}
-            )
+            return_value=httpx.Response(200, json={"error": True, "reason": "Invalid params"})
         )
         with pytest.raises(WeatherAPIError, match="Invalid params"):
             await fetch_weather(46.1879, -123.8313, datetime(2026, 3, 15, 6, 0))
@@ -191,18 +200,14 @@ class TestFetchWeather:
     @respx.mock
     @pytest.mark.asyncio
     async def test_missing_hourly_key(self):
-        respx.get(OPEN_METEO_URL).mock(
-            return_value=httpx.Response(200, json={"data": []})
-        )
+        respx.get(OPEN_METEO_URL).mock(return_value=httpx.Response(200, json={"data": []}))
         with pytest.raises(WeatherAPIError, match="missing 'hourly'"):
             await fetch_weather(46.1879, -123.8313, datetime(2026, 3, 15, 6, 0))
 
     @respx.mock
     @pytest.mark.asyncio
     async def test_http_error(self):
-        respx.get(OPEN_METEO_URL).mock(
-            return_value=httpx.Response(500)
-        )
+        respx.get(OPEN_METEO_URL).mock(return_value=httpx.Response(500))
         with pytest.raises(WeatherAPIError, match="request failed"):
             await fetch_weather(46.1879, -123.8313, datetime(2026, 3, 15, 6, 0))
 

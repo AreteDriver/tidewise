@@ -1,8 +1,6 @@
 """Tests for scoring rules — 100% coverage on all threshold boundaries."""
 
-from datetime import datetime, timedelta, timezone
-
-import pytest
+from datetime import UTC, datetime, timedelta
 
 from tidewise.models import (
     MoonPhase,
@@ -56,7 +54,7 @@ class TestScorePressure:
 
 class TestScoreTide:
     def _make_tide(self, direction, minutes=180, next_type=TideType.HIGH):
-        now = datetime(2026, 3, 15, 6, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 3, 15, 6, 0, tzinfo=UTC)
         next_time = now + timedelta(minutes=minutes)
         return TideData(
             predictions=[],
@@ -119,7 +117,7 @@ class TestScoreTide:
             minutes_until_next=0,
             station_id="9439040",
         )
-        now = datetime(2026, 3, 15, 6, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 3, 15, 6, 0, tzinfo=UTC)
         score, _ = score_tide(tide, now)
         assert score == 0.85
 
@@ -223,7 +221,7 @@ class TestScorePrecipitation:
 
 class TestScoreSolunar:
     def _make_solunar(self, phase=MoonPhase.WAXING_GIBBOUS):
-        base = datetime(2026, 3, 15, tzinfo=timezone.utc)
+        base = datetime(2026, 3, 15, tzinfo=UTC)
         return SolunarData(
             major_periods=[
                 SolunarPeriod(
@@ -251,53 +249,53 @@ class TestScoreSolunar:
 
     def test_in_major_period(self):
         solunar = self._make_solunar()
-        now = datetime(2026, 3, 15, 6, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 3, 15, 6, 0, tzinfo=UTC)
         score, detail = score_solunar(solunar, now)
         assert score == 1.0
         assert "major" in detail
 
     def test_in_minor_period(self):
         solunar = self._make_solunar()
-        now = datetime(2026, 3, 15, 11, 30, tzinfo=timezone.utc)
+        now = datetime(2026, 3, 15, 11, 30, tzinfo=UTC)
         score, detail = score_solunar(solunar, now)
         assert score == 0.8
         assert "minor" in detail
 
     def test_outside_periods(self):
         solunar = self._make_solunar()
-        now = datetime(2026, 3, 15, 3, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 3, 15, 3, 0, tzinfo=UTC)
         score, detail = score_solunar(solunar, now)
         assert score == 0.4
         assert "next" in detail
 
     def test_outside_all_past(self):
         solunar = self._make_solunar()
-        now = datetime(2026, 3, 15, 23, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 3, 15, 23, 0, tzinfo=UTC)
         score, detail = score_solunar(solunar, now)
         assert score == 0.4
         assert "outside" in detail.lower()
 
     def test_new_moon_bonus(self):
         solunar = self._make_solunar(MoonPhase.NEW_MOON)
-        now = datetime(2026, 3, 15, 6, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 3, 15, 6, 0, tzinfo=UTC)
         score, _ = score_solunar(solunar, now)
         assert score == 1.0  # 1.0 + 0.15, capped at 1.0
 
     def test_full_moon_bonus(self):
         solunar = self._make_solunar(MoonPhase.FULL_MOON)
-        now = datetime(2026, 3, 15, 3, 0, tzinfo=timezone.utc)  # outside
+        now = datetime(2026, 3, 15, 3, 0, tzinfo=UTC)  # outside
         score, _ = score_solunar(solunar, now)
         assert score == 0.55  # 0.4 + 0.15
 
     def test_quarter_moon_bonus(self):
         solunar = self._make_solunar(MoonPhase.FIRST_QUARTER)
-        now = datetime(2026, 3, 15, 3, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 3, 15, 3, 0, tzinfo=UTC)
         score, _ = score_solunar(solunar, now)
         assert score == 0.45  # 0.4 + 0.05
 
     def test_no_phase_bonus_for_crescent(self):
         solunar = self._make_solunar(MoonPhase.WAXING_CRESCENT)
-        now = datetime(2026, 3, 15, 3, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 3, 15, 3, 0, tzinfo=UTC)
         score, _ = score_solunar(solunar, now)
         assert score == 0.4
 

@@ -9,7 +9,6 @@ from tidewise.models import (
     MoonPhase,
     PressureTrend,
     SolunarData,
-    SolunarPeriodType,
     TideData,
     TideDirection,
     WeatherData,
@@ -52,9 +51,7 @@ def _add_tide_solunar_suggestion(
             return
         elif period.start <= now <= period.end:
             if tide.current_direction == TideDirection.INCOMING:
-                suggestions.append(
-                    "You're in a solunar major during incoming tide — fish now!"
-                )
+                suggestions.append("You're in a solunar major during incoming tide — fish now!")
             else:
                 suggestions.append(
                     f"In solunar major period (until {period.end.strftime('%H:%M')}) "
@@ -65,12 +62,10 @@ def _add_tide_solunar_suggestion(
     # Generic tide advice
     if tide.current_direction == TideDirection.INCOMING and tide.minutes_until_next > 120:
         suggestions.append("Incoming tide with strong current — fish the current seams")
-    elif tide.current_direction == TideDirection.SLACK:
-        if tide.next_event:
-            suggestions.append(
-                f"Slack tide — position for the change at "
-                f"{tide.next_event.time.strftime('%H:%M')}"
-            )
+    elif tide.current_direction == TideDirection.SLACK and tide.next_event:
+        suggestions.append(
+            f"Slack tide — position for the change at {tide.next_event.time.strftime('%H:%M')}"
+        )
 
 
 def _add_pressure_suggestion(suggestions: list[str], weather: WeatherData) -> None:
@@ -82,17 +77,12 @@ def _add_pressure_suggestion(suggestions: list[str], weather: WeatherData) -> No
         )
     elif weather.pressure_trend == PressureTrend.FALLING:
         suggestions.append(
-            f"Falling pressure ({weather.pressure_inhg:.2f} inHg) "
-            f"— good feeding activity expected"
+            f"Falling pressure ({weather.pressure_inhg:.2f} inHg) — good feeding activity expected"
         )
     elif weather.pressure_trend == PressureTrend.RAPIDLY_RISING:
-        suggestions.append(
-            "Pressure rising fast — fish may lock jaw, try slow presentations"
-        )
+        suggestions.append("Pressure rising fast — fish may lock jaw, try slow presentations")
     elif weather.pressure_trend == PressureTrend.STEADY and weather.pressure_rate >= 0:
-        suggestions.append(
-            "High stable pressure — fish deep structure, slow presentations"
-        )
+        suggestions.append("High stable pressure — fish deep structure, slow presentations")
 
 
 def _add_wind_suggestion(suggestions: list[str], weather: WeatherData) -> None:
@@ -109,8 +99,7 @@ def _add_wind_suggestion(suggestions: list[str], weather: WeatherData) -> None:
         )
     elif weather.wind_direction.upper() in ("E", "NE", "ENE"):
         suggestions.append(
-            f"Wind from the east ({weather.wind_direction}) — "
-            f"fish bite least, try sheltered spots"
+            f"Wind from the east ({weather.wind_direction}) — fish bite least, try sheltered spots"
         )
 
 
@@ -130,10 +119,8 @@ def _add_moon_suggestion(suggestions: list[str], solunar: SolunarData) -> None:
     """Moon phase impact suggestion."""
     if solunar.moon_phase == MoonPhase.FULL_MOON:
         suggestions.append(
-            f"Full moon ({solunar.moon_illumination*100:.0f}% illumination) "
+            f"Full moon ({solunar.moon_illumination * 100:.0f}% illumination) "
             f"— stronger tidal movement, expect active night bite"
         )
     elif solunar.moon_phase == MoonPhase.NEW_MOON:
-        suggestions.append(
-            "New moon — strongest solunar influence, peak daytime feeding windows"
-        )
+        suggestions.append("New moon — strongest solunar influence, peak daytime feeding windows")

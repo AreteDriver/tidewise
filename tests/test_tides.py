@@ -16,7 +16,6 @@ from tidewise.sources.tides import (
     fetch_tides,
 )
 
-
 # Reusable mock response
 NOAA_RESPONSE = {
     "predictions": [
@@ -111,9 +110,7 @@ class TestFetchTides:
     @respx.mock
     @pytest.mark.asyncio
     async def test_successful_fetch(self):
-        respx.get(NOAA_BASE_URL).mock(
-            return_value=httpx.Response(200, json=NOAA_RESPONSE)
-        )
+        respx.get(NOAA_BASE_URL).mock(return_value=httpx.Response(200, json=NOAA_RESPONSE))
         result = await fetch_tides(
             "9439040",
             datetime(2026, 3, 15),
@@ -139,18 +136,14 @@ class TestFetchTides:
     @respx.mock
     @pytest.mark.asyncio
     async def test_missing_predictions_key(self):
-        respx.get(NOAA_BASE_URL).mock(
-            return_value=httpx.Response(200, json={"data": []})
-        )
+        respx.get(NOAA_BASE_URL).mock(return_value=httpx.Response(200, json={"data": []}))
         with pytest.raises(TideAPIError, match="missing 'predictions'"):
             await fetch_tides("9439040", datetime(2026, 3, 15))
 
     @respx.mock
     @pytest.mark.asyncio
     async def test_http_error(self):
-        respx.get(NOAA_BASE_URL).mock(
-            return_value=httpx.Response(500)
-        )
+        respx.get(NOAA_BASE_URL).mock(return_value=httpx.Response(500))
         with pytest.raises(TideAPIError, match="request failed"):
             await fetch_tides("9439040", datetime(2026, 3, 15))
 
@@ -158,14 +151,13 @@ class TestFetchTides:
     @pytest.mark.asyncio
     async def test_multi_day_fetch(self):
         resp = {
-            "predictions": NOAA_RESPONSE["predictions"] + [
+            "predictions": NOAA_RESPONSE["predictions"]
+            + [
                 {"t": "2026-03-16 04:15", "v": "1.5", "type": "L"},
                 {"t": "2026-03-16 10:30", "v": "7.8", "type": "H"},
             ]
         }
-        respx.get(NOAA_BASE_URL).mock(
-            return_value=httpx.Response(200, json=resp)
-        )
+        respx.get(NOAA_BASE_URL).mock(return_value=httpx.Response(200, json=resp))
         result = await fetch_tides(
             "9439040",
             datetime(2026, 3, 15),
@@ -177,9 +169,7 @@ class TestFetchTides:
     @respx.mock
     @pytest.mark.asyncio
     async def test_with_provided_client(self):
-        respx.get(NOAA_BASE_URL).mock(
-            return_value=httpx.Response(200, json=NOAA_RESPONSE)
-        )
+        respx.get(NOAA_BASE_URL).mock(return_value=httpx.Response(200, json=NOAA_RESPONSE))
         async with httpx.AsyncClient() as client:
             result = await fetch_tides(
                 "9439040",

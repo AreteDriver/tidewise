@@ -1,6 +1,6 @@
 """Shared test fixtures and mock API responses."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -41,7 +41,7 @@ def config() -> TideWiseConfig:
 
 @pytest.fixture
 def sample_tide_data() -> TideData:
-    base = datetime(2026, 3, 15, tzinfo=timezone.utc)
+    base = datetime(2026, 3, 15, tzinfo=UTC)
     return TideData(
         predictions=[
             TidePrediction(
@@ -89,13 +89,13 @@ def sample_weather_data() -> WeatherData:
         wind_direction_degrees=225.0,
         cloud_cover_pct=85.0,
         precipitation_mm=0.0,
-        timestamp=datetime(2026, 3, 15, 6, 0, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 3, 15, 6, 0, tzinfo=UTC),
     )
 
 
 @pytest.fixture
 def sample_solunar_data() -> SolunarData:
-    base = datetime(2026, 3, 15, tzinfo=timezone.utc)
+    base = datetime(2026, 3, 15, tzinfo=UTC)
     return SolunarData(
         major_periods=[
             SolunarPeriod(
