@@ -160,6 +160,66 @@ class TestWatchCommand:
         assert "--interval" in result.output
 
 
+class TestHistoryCommand:
+    def test_history_no_data(self, runner, tmp_path):
+        config_file = tmp_path / "cfg.yaml"
+        config_file.write_text("location:\n  name: 'Test'\n")
+        with patch("tidewise.history.get_recent_scores", return_value=[]):
+            result = runner.invoke(main, ["--config", str(config_file), "history"])
+        assert result.exit_code == 0
+        assert "No history" in result.output
+
+    def test_history_with_data(self, runner, tmp_path):
+        config_file = tmp_path / "cfg.yaml"
+        config_file.write_text("location:\n  name: 'Test'\n")
+        records = [
+            {
+                "timestamp": "2026-03-15T12:00:00+00:00",
+                "location": "Test",
+                "station_id": "9439040",
+                "composite": 7.5,
+                "best_window_start": "2026-03-15T14:00:00+00:00",
+                "best_window_end": "2026-03-15T16:00:00+00:00",
+                "best_window_reason": "Solunar major",
+            },
+        ]
+        with (
+            patch("tidewise.history.get_recent_scores", return_value=records),
+            patch("tidewise.history.purge_old_records", return_value=0),
+        ):
+            result = runner.invoke(main, ["--config", str(config_file), "history"])
+        assert result.exit_code == 0
+        assert "Score History" in result.output
+        assert "7.5" in result.output
+
+    def test_history_help(self, runner):
+        result = runner.invoke(main, ["history", "--help"])
+        assert result.exit_code == 0
+        assert "--days" in result.output
+
+
+class TestAutoLogging:
+    def test_today_logs_score(self, runner, mock_sources):
+        with patch("tidewise.history.log_score") as mock_log:
+            result = runner.invoke(main, ["today"])
+        assert result.exit_code == 0
+        mock_log.assert_called_once()
+
+    def test_score_logs_score(self, runner, mock_sources):
+        with patch("tidewise.history.log_score") as mock_log:
+            result = runner.invoke(main, ["score"])
+        assert result.exit_code == 0
+        mock_log.assert_called_once()
+
+    def test_today_skips_log_when_disabled(self, runner, mock_sources, tmp_path):
+        config_file = tmp_path / "cfg.yaml"
+        config_file.write_text("history:\n  enabled: false\n")
+        with patch("tidewise.history.log_score") as mock_log:
+            result = runner.invoke(main, ["--config", str(config_file), "today"])
+        assert result.exit_code == 0
+        mock_log.assert_not_called()
+
+
 class TestMainGroup:
     def test_help(self, runner):
         result = runner.invoke(main, ["--help"])

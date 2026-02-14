@@ -49,6 +49,11 @@ def today(ctx: click.Context) -> None:
 
     render_today_summary(score, tide, weather, solunar, console, tz_name=cfg.location.timezone)
 
+    if cfg.history.enabled:
+        from tidewise.history import log_score as _log
+
+        _log(score, cfg.location.name, cfg.stations.tide, now)
+
 
 @main.command()
 @click.option("--days", default=3, help="Number of days to show")
@@ -102,6 +107,11 @@ def score(ctx: click.Context, date_str: str | None) -> None:
     from tidewise.display.terminal import render_today_summary
 
     render_today_summary(result, tide, weather, solunar, console, tz_name=cfg.location.timezone)
+
+    if cfg.history.enabled:
+        from tidewise.history import log_score as _log
+
+        _log(result, cfg.location.name, cfg.stations.tide, target)
 
 
 @main.command()
@@ -272,6 +282,26 @@ def watch(ctx: click.Context, interval: int) -> None:
             time.sleep(interval)
     except KeyboardInterrupt:
         console.print("\n[dim]Watch stopped.[/dim]")
+
+
+@main.command()
+@click.option("--days", default=30, help="Number of days to show")
+@click.pass_context
+def history(ctx: click.Context, days: int) -> None:
+    """Show historical fishing scores and trends."""
+    cfg: TideWiseConfig = ctx.obj["config"]
+
+    from tidewise.display.terminal import render_score_history
+    from tidewise.history import get_recent_scores, purge_old_records
+
+    records = get_recent_scores(days=days, location=cfg.location.name)
+    purge_old_records(retention_days=cfg.history.retention_days)
+
+    if not records:
+        console.print("[dim]No history yet. Run 'tidewise today' or 'tidewise score'.[/dim]")
+        return
+
+    render_score_history(records, console)
 
 
 def _fetch_all_sources(cfg: TideWiseConfig, target: datetime | None = None) -> tuple:

@@ -27,3 +27,7 @@ notifications:
   ntfy_topic: "tidewise-fishing"
   alert_score: 8.0           # notify when score >= this
   cooldown_minutes: 60       # min time between alerts
+
+history:
+  enabled: true              # auto-log scores from today/score commands
+  retention_days: 365        # purge records older than this

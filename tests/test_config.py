@@ -3,6 +3,7 @@
 import pytest
 
 from tidewise.config import (
+    HistoryConfig,
     LocationConfig,
     NotificationConfig,
     ScoreWeights,
@@ -152,3 +153,42 @@ notifications:
         config_file.write_text("location:\n  name: 'Test'\n")
         cfg = load_config(config_file)
         assert cfg.notifications.enabled is False
+
+
+class TestHistoryConfig:
+    def test_defaults(self):
+        cfg = HistoryConfig()
+        assert cfg.enabled is True
+        assert cfg.retention_days == 365
+
+    def test_tidewise_config_has_history(self):
+        cfg = TideWiseConfig()
+        assert isinstance(cfg.history, HistoryConfig)
+        assert cfg.history.enabled is True
+
+    def test_parse_from_yaml(self, tmp_path):
+        config_file = tmp_path / "hist.yaml"
+        config_file.write_text(
+            """
+history:
+  enabled: false
+  retention_days: 90
+"""
+        )
+        cfg = load_config(config_file)
+        assert cfg.history.enabled is False
+        assert cfg.history.retention_days == 90
+
+    def test_partial_history_config(self, tmp_path):
+        config_file = tmp_path / "partial.yaml"
+        config_file.write_text("history:\n  retention_days: 180\n")
+        cfg = load_config(config_file)
+        assert cfg.history.enabled is True  # default
+        assert cfg.history.retention_days == 180
+
+    def test_missing_history_section(self, tmp_path):
+        config_file = tmp_path / "no_hist.yaml"
+        config_file.write_text("location:\n  name: 'Test'\n")
+        cfg = load_config(config_file)
+        assert cfg.history.enabled is True
+        assert cfg.history.retention_days == 365

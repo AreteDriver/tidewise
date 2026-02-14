@@ -108,6 +108,61 @@ def render_best_windows(
     console.print()
 
 
+def render_score_history(
+    records: list[dict],
+    console: Console | None = None,
+) -> None:
+    """Render historical score records as a table with trend arrows."""
+    if console is None:
+        console = Console()
+
+    table = Table(title="Score History", show_lines=True)
+    table.add_column("Date", style="cyan")
+    table.add_column("Score", justify="right", style="bold")
+    table.add_column("Trend")
+    table.add_column("Best Window")
+    table.add_column("Reason")
+
+    for i, rec in enumerate(records):
+        color = _score_color(rec["composite"])
+        score_val = rec["composite"]
+
+        # Trend arrow: compare to next (older) record
+        if i + 1 < len(records):
+            prev = records[i + 1]["composite"]
+            if score_val > prev + 0.5:
+                trend = Text("\u2191", style="green")
+            elif score_val < prev - 0.5:
+                trend = Text("\u2193", style="red")
+            else:
+                trend = Text("\u2192", style="dim")
+        else:
+            trend = Text("-", style="dim")
+
+        window = ""
+        if rec.get("best_window_start") and rec.get("best_window_end"):
+            try:
+                start = datetime.fromisoformat(rec["best_window_start"])
+                end = datetime.fromisoformat(rec["best_window_end"])
+                window = f"{start.strftime('%H:%M')} - {end.strftime('%H:%M')}"
+            except (ValueError, TypeError):
+                pass
+
+        ts = datetime.fromisoformat(rec["timestamp"])
+        table.add_row(
+            ts.strftime("%a %m/%d %I:%M %p"),
+            Text(f"{score_val:.1f}", style=color),
+            trend,
+            window,
+            rec.get("best_window_reason", ""),
+        )
+
+    console.print()
+    console.print(table)
+    console.print(f"\n[dim]{len(records)} records shown[/dim]")
+    console.print()
+
+
 def _build_score_panel(score: FishingScore) -> Panel:
     """Build the main score panel."""
     color = _score_color(score.composite)

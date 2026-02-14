@@ -51,11 +51,18 @@ class NotificationConfig:
 
 
 @dataclass
+class HistoryConfig:
+    enabled: bool = True
+    retention_days: int = 365
+
+
+@dataclass
 class TideWiseConfig:
     location: LocationConfig = field(default_factory=LocationConfig)
     stations: StationConfig = field(default_factory=StationConfig)
     preferences: PreferencesConfig = field(default_factory=PreferencesConfig)
     notifications: NotificationConfig = field(default_factory=NotificationConfig)
+    history: HistoryConfig = field(default_factory=HistoryConfig)
 
 
 _CONFIG_SEARCH_PATHS = [
@@ -130,9 +137,16 @@ def _parse_config(path: Path) -> TideWiseConfig:
         ),
     )
 
+    history_raw = raw.get("history", {})
+    history = HistoryConfig(
+        enabled=history_raw.get("enabled", HistoryConfig.enabled),
+        retention_days=int(history_raw.get("retention_days", HistoryConfig.retention_days)),
+    )
+
     return TideWiseConfig(
         location=location,
         stations=stations,
         preferences=preferences,
         notifications=notifications,
+        history=history,
     )
