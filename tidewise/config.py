@@ -41,10 +41,21 @@ class PreferencesConfig:
 
 
 @dataclass
+class NotificationConfig:
+    enabled: bool = False
+    method: str = "ntfy"  # ntfy | desktop | both | none
+    ntfy_url: str = "https://ntfy.sh"
+    ntfy_topic: str = "tidewise-fishing"
+    alert_score: float = 8.0
+    cooldown_minutes: int = 60
+
+
+@dataclass
 class TideWiseConfig:
     location: LocationConfig = field(default_factory=LocationConfig)
     stations: StationConfig = field(default_factory=StationConfig)
     preferences: PreferencesConfig = field(default_factory=PreferencesConfig)
+    notifications: NotificationConfig = field(default_factory=NotificationConfig)
 
 
 _CONFIG_SEARCH_PATHS = [
@@ -107,4 +118,21 @@ def _parse_config(path: Path) -> TideWiseConfig:
         score_weights=weights,
     )
 
-    return TideWiseConfig(location=location, stations=stations, preferences=preferences)
+    notif_raw = raw.get("notifications", {})
+    notifications = NotificationConfig(
+        enabled=notif_raw.get("enabled", NotificationConfig.enabled),
+        method=notif_raw.get("method", NotificationConfig.method),
+        ntfy_url=notif_raw.get("ntfy_url", NotificationConfig.ntfy_url),
+        ntfy_topic=notif_raw.get("ntfy_topic", NotificationConfig.ntfy_topic),
+        alert_score=float(notif_raw.get("alert_score", NotificationConfig.alert_score)),
+        cooldown_minutes=int(
+            notif_raw.get("cooldown_minutes", NotificationConfig.cooldown_minutes)
+        ),
+    )
+
+    return TideWiseConfig(
+        location=location,
+        stations=stations,
+        preferences=preferences,
+        notifications=notifications,
+    )

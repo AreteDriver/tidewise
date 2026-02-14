@@ -19,3 +19,11 @@ preferences:
     wind: 0.15
     cloud: 0.10
     precipitation: 0.05
+
+notifications:
+  enabled: true
+  method: ntfy               # ntfy | desktop | both | none
+  ntfy_url: "https://ntfy.sh"
+  ntfy_topic: "tidewise-fishing"
+  alert_score: 8.0           # notify when score >= this
+  cooldown_minutes: 60       # min time between alerts

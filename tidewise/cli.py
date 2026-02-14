@@ -164,6 +164,116 @@ def dashboard(ctx: click.Context, interval: int) -> None:
         console.print("\n[dim]Dashboard stopped.[/dim]")
 
 
+@main.command()
+@click.option("--force", is_flag=True, help="Send regardless of threshold/cooldown")
+@click.pass_context
+def notify(ctx: click.Context, force: bool) -> None:
+    """One-shot notification check — cron/systemd-friendly."""
+    cfg: TideWiseConfig = ctx.obj["config"]
+
+    if not cfg.notifications.enabled and not force:
+        console.print("[dim]Notifications disabled in config.[/dim]")
+        return
+
+    try:
+        tide, weather, solunar = _fetch_all_sources(cfg)
+    except Exception as e:
+        console.print(f"[red]Error fetching data: {e}[/red]")
+        raise SystemExit(1) from None
+
+    from tidewise.notifications import (
+        format_score_alert,
+        send_notification,
+        should_notify,
+        update_state,
+    )
+    from tidewise.scoring.engine import calculate_score
+
+    now = datetime.now(UTC)
+    score = calculate_score(cfg.preferences.score_weights, tide, weather, solunar, now)
+
+    if not force and not should_notify(
+        score.composite, cfg.notifications.alert_score, cfg.notifications.cooldown_minutes
+    ):
+        console.print(
+            f"[dim]Score {score.composite:.1f}/10 "
+            f"(threshold {cfg.notifications.alert_score}). No notification.[/dim]"
+        )
+        return
+
+    title, body = format_score_alert(score, cfg.location.name, cfg.location.timezone)
+    priority = "high" if score.composite >= 9.0 else "default"
+    sent = asyncio.run(send_notification(cfg.notifications, title, body, priority=priority))
+
+    if sent:
+        update_state(score.composite)
+        console.print(f"[green]Notification sent: {score.composite:.1f}/10[/green]")
+    else:
+        console.print("[yellow]Notification delivery failed.[/yellow]")
+
+
+@main.command()
+@click.option("--interval", default=300, help="Check interval in seconds")
+@click.pass_context
+def watch(ctx: click.Context, interval: int) -> None:
+    """Continuous monitoring — sends alert when score crosses threshold."""
+    cfg: TideWiseConfig = ctx.obj["config"]
+
+    if not cfg.notifications.enabled:
+        console.print("[dim]Notifications disabled in config.[/dim]")
+        return
+
+    from tidewise.notifications import (
+        format_score_alert,
+        send_notification,
+        should_notify,
+        update_state,
+    )
+    from tidewise.scoring.engine import calculate_score
+
+    console.print(
+        f"[bold]TideWise Watch[/bold] — "
+        f"threshold {cfg.notifications.alert_score}, "
+        f"interval {interval}s. Press Ctrl+C to stop.\n"
+    )
+
+    try:
+        while True:
+            try:
+                tide, weather, solunar = _fetch_all_sources(cfg)
+                now = datetime.now(UTC)
+                score = calculate_score(cfg.preferences.score_weights, tide, weather, solunar, now)
+                console.print(
+                    f"[dim]{now.strftime('%H:%M:%S')} — Score: {score.composite:.1f}/10[/dim]"
+                )
+
+                if should_notify(
+                    score.composite,
+                    cfg.notifications.alert_score,
+                    cfg.notifications.cooldown_minutes,
+                ):
+                    title, body = format_score_alert(
+                        score, cfg.location.name, cfg.location.timezone
+                    )
+                    priority = "high" if score.composite >= 9.0 else "default"
+                    sent = asyncio.run(
+                        send_notification(cfg.notifications, title, body, priority=priority)
+                    )
+                    if sent:
+                        update_state(score.composite)
+                        console.print(f"[green]Alert sent: {score.composite:.1f}/10[/green]")
+                    else:
+                        console.print("[yellow]Alert delivery failed.[/yellow]")
+            except Exception as e:
+                console.print(f"[red]Watch error: {e}[/red]")
+
+            import time
+
+            time.sleep(interval)
+    except KeyboardInterrupt:
+        console.print("\n[dim]Watch stopped.[/dim]")
+
+
 def _fetch_all_sources(cfg: TideWiseConfig, target: datetime | None = None) -> tuple:
     """Fetch tide + weather concurrently, solunar synchronously.
 

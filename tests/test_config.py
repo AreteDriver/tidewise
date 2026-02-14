@@ -4,6 +4,7 @@ import pytest
 
 from tidewise.config import (
     LocationConfig,
+    NotificationConfig,
     ScoreWeights,
     TideWiseConfig,
     load_config,
@@ -100,3 +101,54 @@ preferences:
         monkeypatch.setattr("tidewise.config._CONFIG_SEARCH_PATHS", [first, second])
         cfg = load_config()
         assert cfg.location.name == "First"
+
+
+class TestNotificationConfig:
+    def test_defaults(self):
+        cfg = NotificationConfig()
+        assert cfg.enabled is False
+        assert cfg.method == "ntfy"
+        assert cfg.ntfy_url == "https://ntfy.sh"
+        assert cfg.ntfy_topic == "tidewise-fishing"
+        assert cfg.alert_score == 8.0
+        assert cfg.cooldown_minutes == 60
+
+    def test_tidewise_config_has_notifications(self):
+        cfg = TideWiseConfig()
+        assert isinstance(cfg.notifications, NotificationConfig)
+        assert cfg.notifications.enabled is False
+
+    def test_parse_from_yaml(self, tmp_path):
+        config_file = tmp_path / "notif.yaml"
+        config_file.write_text(
+            """
+notifications:
+  enabled: true
+  method: both
+  ntfy_url: "https://custom.ntfy.example.com"
+  ntfy_topic: "my-fishing"
+  alert_score: 7.5
+  cooldown_minutes: 30
+"""
+        )
+        cfg = load_config(config_file)
+        assert cfg.notifications.enabled is True
+        assert cfg.notifications.method == "both"
+        assert cfg.notifications.ntfy_url == "https://custom.ntfy.example.com"
+        assert cfg.notifications.ntfy_topic == "my-fishing"
+        assert cfg.notifications.alert_score == 7.5
+        assert cfg.notifications.cooldown_minutes == 30
+
+    def test_partial_notification_config(self, tmp_path):
+        config_file = tmp_path / "partial.yaml"
+        config_file.write_text("notifications:\n  enabled: true\n")
+        cfg = load_config(config_file)
+        assert cfg.notifications.enabled is True
+        assert cfg.notifications.method == "ntfy"  # default
+        assert cfg.notifications.alert_score == 8.0  # default
+
+    def test_missing_notifications_section(self, tmp_path):
+        config_file = tmp_path / "no_notif.yaml"
+        config_file.write_text("location:\n  name: 'Test'\n")
+        cfg = load_config(config_file)
+        assert cfg.notifications.enabled is False

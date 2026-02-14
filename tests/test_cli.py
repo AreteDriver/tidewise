@@ -1,6 +1,6 @@
 """Tests for CLI commands."""
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from click.testing import CliRunner
@@ -82,6 +82,82 @@ class TestBestCommand:
         with patch("tidewise.cli._fetch_all_sources", side_effect=RuntimeError("fail")):
             result = runner.invoke(main, ["best", "--days", "2"])
             assert "Could not fetch" in result.output or "Skipping" in result.output
+
+
+class TestNotifyCommand:
+    def test_notify_disabled(self, runner, mock_sources):
+        """Notifications disabled in config — exits without sending."""
+        result = runner.invoke(main, ["notify"])
+        assert result.exit_code == 0
+        assert "disabled" in result.output
+
+    def test_notify_below_threshold(self, runner, mock_sources, tmp_path):
+        config_file = tmp_path / "notif.yaml"
+        config_file.write_text("notifications:\n  enabled: true\n  alert_score: 99.0\n")
+        result = runner.invoke(main, ["--config", str(config_file), "notify"])
+        assert result.exit_code == 0
+        assert "No notification" in result.output
+
+    def test_notify_force(self, runner, mock_sources, tmp_path):
+        config_file = tmp_path / "notif.yaml"
+        config_file.write_text("notifications:\n  enabled: true\n  method: none\n")
+        with patch(
+            "tidewise.notifications.send_notification",
+            new_callable=AsyncMock,
+            return_value=False,
+        ):
+            result = runner.invoke(main, ["--config", str(config_file), "notify", "--force"])
+        assert result.exit_code == 0
+
+    def test_notify_sends_successfully(self, runner, mock_sources, tmp_path):
+        config_file = tmp_path / "notif.yaml"
+        config_file.write_text("notifications:\n  enabled: true\n  alert_score: 1.0\n")
+        with (
+            patch(
+                "tidewise.notifications.send_notification",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch("tidewise.notifications.update_state"),
+        ):
+            result = runner.invoke(main, ["--config", str(config_file), "notify"])
+        assert result.exit_code == 0
+        assert "Notification sent" in result.output
+
+    def test_notify_delivery_failure(self, runner, mock_sources, tmp_path):
+        config_file = tmp_path / "notif.yaml"
+        config_file.write_text("notifications:\n  enabled: true\n  alert_score: 1.0\n")
+        with patch(
+            "tidewise.notifications.send_notification",
+            new_callable=AsyncMock,
+            return_value=False,
+        ):
+            result = runner.invoke(main, ["--config", str(config_file), "notify"])
+        assert result.exit_code == 0
+        assert "failed" in result.output
+
+    def test_notify_fetch_error(self, runner):
+        with patch("tidewise.cli._fetch_all_sources", side_effect=RuntimeError("API")):
+            result = runner.invoke(main, ["notify", "--force"])
+            assert result.exit_code == 1
+            assert "Error" in result.output
+
+    def test_notify_help(self, runner):
+        result = runner.invoke(main, ["notify", "--help"])
+        assert result.exit_code == 0
+        assert "--force" in result.output
+
+
+class TestWatchCommand:
+    def test_watch_disabled(self, runner, mock_sources):
+        result = runner.invoke(main, ["watch"])
+        assert result.exit_code == 0
+        assert "disabled" in result.output
+
+    def test_watch_help(self, runner):
+        result = runner.invoke(main, ["watch", "--help"])
+        assert result.exit_code == 0
+        assert "--interval" in result.output
 
 
 class TestMainGroup:
