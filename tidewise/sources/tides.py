@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import httpx
 
@@ -45,7 +45,7 @@ async def fetch_tides(
         "product": "predictions",
         "datum": "MLLW",
         "interval": "hilo",
-        "time_zone": "lst_ldt",
+        "time_zone": "gmt",
         "units": "english",
         "format": "json",
         "application": "tidewise",
@@ -74,7 +74,7 @@ async def fetch_tides(
     predictions = _parse_predictions(data["predictions"])
 
     if now is None:
-        now = datetime.now()
+        now = datetime.now(UTC)
 
     direction = _determine_tide_direction(predictions, now)
     next_event, minutes_until = _find_next_event(predictions, now)
@@ -106,7 +106,7 @@ def _parse_predictions(raw: list[dict]) -> list[TidePrediction]:
     predictions = []
     for entry in raw:
         try:
-            time = datetime.strptime(entry["t"], "%Y-%m-%d %H:%M")
+            time = datetime.strptime(entry["t"], "%Y-%m-%d %H:%M").replace(tzinfo=UTC)
             height = float(entry["v"])
             tide_type = TideType.HIGH if entry["type"] == "H" else TideType.LOW
             predictions.append(TidePrediction(time=time, height_ft=height, type=tide_type))

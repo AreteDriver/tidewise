@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from rich.console import Console
 from rich.panel import Panel
@@ -26,6 +27,7 @@ def render_today_summary(
     weather: WeatherData,
     solunar: SolunarData,
     console: Console | None = None,
+    tz_name: str | None = None,
 ) -> None:
     """Render concise daily summary to terminal."""
     if console is None:
@@ -34,7 +36,7 @@ def render_today_summary(
     console.print()
     console.print(_build_score_panel(score))
     console.print()
-    console.print(_build_tide_panel(tide))
+    console.print(_build_tide_panel(tide, tz_name=tz_name))
     console.print(_build_weather_panel(weather))
     console.print(_build_solunar_panel(solunar))
     console.print()
@@ -42,7 +44,9 @@ def render_today_summary(
     console.print()
 
 
-def render_tide_forecast(tide: TideData, console: Console | None = None) -> None:
+def render_tide_forecast(
+    tide: TideData, console: Console | None = None, tz_name: str | None = None
+) -> None:
     """Render tide predictions as a table."""
     if console is None:
         console = Console()
@@ -54,8 +58,9 @@ def render_tide_forecast(tide: TideData, console: Console | None = None) -> None
 
     for pred in tide.predictions:
         type_style = "blue" if pred.type.value == "high" else "green"
+        display_time = _to_local(pred.time, tz_name)
         table.add_row(
-            pred.time.strftime("%a %m/%d %I:%M %p"),
+            display_time.strftime("%a %m/%d %I:%M %p"),
             f"{pred.height_ft:.1f}",
             Text(pred.type.value.upper(), style=type_style),
         )
@@ -134,7 +139,7 @@ def _build_score_panel(score: FishingScore) -> Panel:
     return Panel(score_text, title="[bold]Fishing Score[/bold]", border_style=color)
 
 
-def _build_tide_panel(tide: TideData) -> Panel:
+def _build_tide_panel(tide: TideData, tz_name: str | None = None) -> Panel:
     """Build the tide info panel."""
     text = Text()
     text.append("  Direction: ", style="dim")
@@ -143,9 +148,10 @@ def _build_tide_panel(tide: TideData) -> Panel:
     if tide.next_event:
         hours = tide.minutes_until_next // 60
         mins = tide.minutes_until_next % 60
+        display_time = _to_local(tide.next_event.time, tz_name)
         text.append(f"  Next {tide.next_event.type.value.title()}: ", style="dim")
         text.append(
-            f"{tide.next_event.time.strftime('%I:%M %p')} "
+            f"{display_time.strftime('%I:%M %p')} "
             f"({tide.next_event.height_ft:.1f} ft) — "
             f"{hours}h {mins}m\n"
         )
@@ -218,6 +224,13 @@ def _build_suggestions_panel(score: FishingScore) -> Panel:
         text.append("  No specific suggestions for current conditions.\n", style="dim")
 
     return Panel(text, title="[bold]Suggestions[/bold]", border_style="green")
+
+
+def _to_local(dt: datetime, tz_name: str | None) -> datetime:
+    """Convert a datetime to local timezone if tz_name provided."""
+    if tz_name and dt.tzinfo is not None:
+        return dt.astimezone(ZoneInfo(tz_name))
+    return dt
 
 
 def _score_color(score: float) -> str:

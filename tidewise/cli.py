@@ -47,7 +47,7 @@ def today(ctx: click.Context) -> None:
 
     from tidewise.display.terminal import render_today_summary
 
-    render_today_summary(score, tide, weather, solunar, console)
+    render_today_summary(score, tide, weather, solunar, console, tz_name=cfg.location.timezone)
 
 
 @main.command()
@@ -61,7 +61,7 @@ def tides(ctx: click.Context, days: int) -> None:
 
         tide = fetch_tides_sync(
             cfg.stations.tide,
-            datetime.now(),
+            datetime.now(UTC),
             days=days,
         )
     except Exception as e:
@@ -70,7 +70,7 @@ def tides(ctx: click.Context, days: int) -> None:
 
     from tidewise.display.terminal import render_tide_forecast
 
-    render_tide_forecast(tide, console)
+    render_tide_forecast(tide, console, tz_name=cfg.location.timezone)
 
 
 @main.command()
@@ -101,7 +101,7 @@ def score(ctx: click.Context, date_str: str | None) -> None:
 
     from tidewise.display.terminal import render_today_summary
 
-    render_today_summary(result, tide, weather, solunar, console)
+    render_today_summary(result, tide, weather, solunar, console, tz_name=cfg.location.timezone)
 
 
 @main.command()
@@ -152,7 +152,8 @@ def dashboard(ctx: click.Context, interval: int) -> None:
                 result = calculate_score(cfg.preferences.score_weights, tide, weather, solunar, now)
                 console.clear()
                 console.print(f"[dim]Last updated: {now.strftime('%I:%M:%S %p')}[/dim]")
-                render_today_summary(result, tide, weather, solunar, console)
+                tz = cfg.location.timezone
+                render_today_summary(result, tide, weather, solunar, console, tz_name=tz)
             except Exception as e:
                 console.print(f"[red]Refresh error: {e}[/red]")
 

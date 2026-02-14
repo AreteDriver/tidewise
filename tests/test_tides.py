@@ -1,6 +1,6 @@
 """Tests for NOAA tides client."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 import httpx
 import pytest
@@ -53,30 +53,30 @@ class TestParsePredictions:
 class TestTideDirection:
     def test_incoming_between_low_and_high(self):
         preds = _parse_predictions(NOAA_RESPONSE["predictions"])
-        now = datetime(2026, 3, 15, 6, 0)  # between low@3:22 and high@9:45
+        now = datetime(2026, 3, 15, 6, 0, tzinfo=UTC)  # between low@3:22 and high@9:45
         assert _determine_tide_direction(preds, now) == TideDirection.INCOMING
 
     def test_outgoing_between_high_and_low(self):
         preds = _parse_predictions(NOAA_RESPONSE["predictions"])
-        now = datetime(2026, 3, 15, 12, 0)  # between high@9:45 and low@15:58
+        now = datetime(2026, 3, 15, 12, 0, tzinfo=UTC)  # between high@9:45 and low@15:58
         assert _determine_tide_direction(preds, now) == TideDirection.OUTGOING
 
     def test_slack_near_event(self):
         preds = _parse_predictions(NOAA_RESPONSE["predictions"])
-        now = datetime(2026, 3, 15, 9, 30)  # 15 min before high@9:45
+        now = datetime(2026, 3, 15, 9, 30, tzinfo=UTC)  # 15 min before high@9:45
         assert _determine_tide_direction(preds, now) == TideDirection.SLACK
 
     def test_slack_at_event(self):
         preds = _parse_predictions(NOAA_RESPONSE["predictions"])
-        now = datetime(2026, 3, 15, 9, 45)  # exactly at high
+        now = datetime(2026, 3, 15, 9, 45, tzinfo=UTC)  # exactly at high
         assert _determine_tide_direction(preds, now) == TideDirection.SLACK
 
     def test_empty_predictions(self):
-        assert _determine_tide_direction([], datetime.now()) == TideDirection.SLACK
+        assert _determine_tide_direction([], datetime.now(UTC)) == TideDirection.SLACK
 
     def test_before_first_prediction(self):
         preds = _parse_predictions(NOAA_RESPONSE["predictions"])
-        now = datetime(2026, 3, 15, 0, 0)  # before first event
+        now = datetime(2026, 3, 15, 0, 0, tzinfo=UTC)  # before first event
         result = _determine_tide_direction(preds, now)
         assert result in (TideDirection.INCOMING, TideDirection.OUTGOING)
 
@@ -84,7 +84,7 @@ class TestTideDirection:
 class TestFindNextEvent:
     def test_finds_next_high(self):
         preds = _parse_predictions(NOAA_RESPONSE["predictions"])
-        now = datetime(2026, 3, 15, 6, 0)
+        now = datetime(2026, 3, 15, 6, 0, tzinfo=UTC)
         event, minutes = _find_next_event(preds, now)
         assert event is not None
         assert event.type == TideType.HIGH
@@ -93,14 +93,14 @@ class TestFindNextEvent:
 
     def test_finds_next_low(self):
         preds = _parse_predictions(NOAA_RESPONSE["predictions"])
-        now = datetime(2026, 3, 15, 10, 0)
+        now = datetime(2026, 3, 15, 10, 0, tzinfo=UTC)
         event, minutes = _find_next_event(preds, now)
         assert event is not None
         assert event.type == TideType.LOW
 
     def test_no_future_event(self):
         preds = _parse_predictions(NOAA_RESPONSE["predictions"])
-        now = datetime(2026, 3, 15, 23, 0)  # after all events
+        now = datetime(2026, 3, 15, 23, 0, tzinfo=UTC)  # after all events
         event, minutes = _find_next_event(preds, now)
         assert event is None
         assert minutes == 0
@@ -114,7 +114,7 @@ class TestFetchTides:
         result = await fetch_tides(
             "9439040",
             datetime(2026, 3, 15),
-            now=datetime(2026, 3, 15, 6, 0),
+            now=datetime(2026, 3, 15, 6, 0, tzinfo=UTC),
         )
         assert result.station_id == "9439040"
         assert len(result.predictions) == 4
@@ -162,7 +162,7 @@ class TestFetchTides:
             "9439040",
             datetime(2026, 3, 15),
             days=2,
-            now=datetime(2026, 3, 15, 6, 0),
+            now=datetime(2026, 3, 15, 6, 0, tzinfo=UTC),
         )
         assert len(result.predictions) == 6
 
@@ -174,7 +174,7 @@ class TestFetchTides:
             result = await fetch_tides(
                 "9439040",
                 datetime(2026, 3, 15),
-                now=datetime(2026, 3, 15, 6, 0),
+                now=datetime(2026, 3, 15, 6, 0, tzinfo=UTC),
                 client=client,
             )
             assert len(result.predictions) == 4

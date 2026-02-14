@@ -8,7 +8,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from skyfield import almanac
-from skyfield.api import Loader, wgs84
+from skyfield.api import Loader, Topos, wgs84
 
 from tidewise.models import MoonPhase, SolunarData, SolunarPeriod, SolunarPeriodType
 
@@ -56,16 +56,17 @@ def get_solunar_data(
     t0 = ts.from_datetime(utc_start)
     t1 = ts.from_datetime(utc_end)
 
-    location = wgs84.latlon(latitude, longitude)
+    topos = Topos(latitude, longitude)  # needed for meridian_transits
+    observer = eph["Earth"] + wgs84.latlon(latitude, longitude)  # for rise/set
 
     moon_phase = _compute_moon_phase(eph, ts, utc_start)
     moon_illumination = _compute_moon_illumination(eph, ts, utc_start)
 
-    major_periods = _compute_major_periods(eph, ts, location, t0, t1, tz)
-    minor_periods = _compute_minor_periods(eph, ts, location, t0, t1, tz)
+    major_periods = _compute_major_periods(eph, ts, topos, t0, t1, tz)
+    minor_periods = _compute_minor_periods(eph, ts, observer, t0, t1, tz)
 
-    sunrise, sunset = _compute_sun_rise_set(eph, ts, location, t0, t1, tz)
-    moonrise, moonset = _compute_moon_rise_set_times(eph, ts, location, t0, t1, tz)
+    sunrise, sunset = _compute_sun_rise_set(eph, ts, observer, t0, t1, tz)
+    moonrise, moonset = _compute_moon_rise_set_times(eph, ts, observer, t0, t1, tz)
 
     return SolunarData(
         major_periods=major_periods,
