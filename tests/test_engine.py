@@ -153,6 +153,17 @@ class TestCalculateScore:
         factor_names = {f.name for f in result.factors}
         assert "water_temp" not in factor_names
 
+    def test_all_zero_weights(self, sample_tide_data, sample_weather_data, sample_solunar_data):
+        """All weights at zero produces composite of 1.0 (minimum)."""
+        now = datetime(2026, 3, 15, 6, 0, tzinfo=UTC)
+        weights = ScoreWeights(
+            solunar=0, tide=0, pressure=0, wind=0, cloud=0, precipitation=0, water_temp=0
+        )
+        result = calculate_score(
+            weights, sample_tide_data, sample_weather_data, sample_solunar_data, now
+        )
+        assert result.composite == 1.0
+
 
 class TestFindBestWindow:
     def test_upcoming_major_period(self, sample_tide_data, sample_solunar_data):
@@ -171,3 +182,45 @@ class TestFindBestWindow:
         now = datetime(2026, 3, 16, 12, 0, tzinfo=UTC)
         start, _, reason = _find_best_window(sample_tide_data, sample_solunar_data, now)
         assert "tide" in reason.lower() or "incoming" in reason.lower()
+
+    def test_solunar_major_non_incoming_tide(self, sample_solunar_data):
+        """Major period upcoming but tide is outgoing — no incoming label."""
+        from tidewise.models import TideData, TideDirection, TidePrediction, TideType
+
+        now = datetime(2026, 3, 15, 4, 0, tzinfo=UTC)
+        outgoing_tide = TideData(
+            predictions=[],
+            current_direction=TideDirection.OUTGOING,
+            next_event=TidePrediction(
+                time=datetime(2026, 3, 15, 10, 0, tzinfo=UTC),
+                height_ft=1.0,
+                type=TideType.LOW,
+            ),
+            minutes_until_next=60,
+            station_id="test",
+        )
+        start, end, reason = _find_best_window(outgoing_tide, sample_solunar_data, now)
+        assert start is not None
+        assert "incoming" not in reason.lower()
+        assert "major" in reason.lower()
+
+    def test_outgoing_tide_fallback(self, sample_solunar_data):
+        """When no solunar major and tide outgoing — suggests waiting."""
+        from tidewise.models import TideData, TideDirection, TidePrediction, TideType
+
+        # now is after all solunar periods
+        now = datetime(2026, 3, 16, 12, 0, tzinfo=UTC)
+        outgoing_tide = TideData(
+            predictions=[],
+            current_direction=TideDirection.OUTGOING,
+            next_event=TidePrediction(
+                time=datetime(2026, 3, 16, 14, 0, tzinfo=UTC),
+                height_ft=7.0,
+                type=TideType.HIGH,
+            ),
+            minutes_until_next=120,
+            station_id="test",
+        )
+        start, end, reason = _find_best_window(outgoing_tide, sample_solunar_data, now)
+        assert "wait" in reason.lower() or "change" in reason.lower()
+        assert end is None  # outgoing only sets start, no end

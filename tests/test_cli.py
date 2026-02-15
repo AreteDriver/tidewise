@@ -15,15 +15,20 @@ def runner():
 
 @pytest.fixture
 def mock_sources(
-    sample_tide_data, sample_weather_data, sample_solunar_data, sample_water_temp_data
+    sample_tide_data,
+    sample_weather_data,
+    sample_solunar_data,
+    sample_water_temp_data,
+    sample_usgs_data,
 ):
-    """Patch _fetch_all_sources to return sample data (4-tuple)."""
+    """Patch _fetch_all_sources to return sample data (5-tuple)."""
     with patch("tidewise.cli._fetch_all_sources") as mock:
         mock.return_value = (
             sample_tide_data,
             sample_weather_data,
             sample_solunar_data,
             sample_water_temp_data,
+            sample_usgs_data,
         )
         yield mock
 
@@ -111,6 +116,114 @@ class TestWeekCommand:
         result = runner.invoke(main, ["week", "--help"])
         assert result.exit_code == 0
         assert "--days" in result.output
+
+
+class TestScoreCommandExtra:
+    def test_score_fetch_error(self, runner):
+        with patch("tidewise.cli._fetch_all_sources", side_effect=RuntimeError("API down")):
+            result = runner.invoke(main, ["score"])
+            assert result.exit_code == 1
+            assert "Error" in result.output
+
+
+class TestDashboardCommand:
+    def test_dashboard_single_iteration(self, runner, mock_sources):
+        """Dashboard runs one iteration then stops on KeyboardInterrupt."""
+        with patch("time.sleep", side_effect=KeyboardInterrupt):
+            result = runner.invoke(main, ["dashboard"])
+        assert result.exit_code == 0
+        assert "Dashboard" in result.output
+
+    def test_dashboard_refresh_error(self, runner):
+        """Dashboard handles fetch errors gracefully."""
+        call_count = 0
+
+        def _side_effect(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            raise RuntimeError("API down")
+
+        with (
+            patch("tidewise.cli._fetch_all_sources", side_effect=_side_effect),
+            patch("time.sleep", side_effect=KeyboardInterrupt),
+        ):
+            result = runner.invoke(main, ["dashboard"])
+        assert result.exit_code == 0
+        assert "Refresh error" in result.output
+
+    def test_dashboard_help(self, runner):
+        result = runner.invoke(main, ["dashboard", "--help"])
+        assert result.exit_code == 0
+        assert "--interval" in result.output
+
+
+class TestWatchCommandExtra:
+    def test_watch_single_iteration(self, runner, mock_sources, tmp_path):
+        """Watch runs one iteration then stops on KeyboardInterrupt."""
+        config_file = tmp_path / "cfg.yaml"
+        config_file.write_text("notifications:\n  enabled: true\n  alert_score: 99.0\n")
+        with patch("time.sleep", side_effect=KeyboardInterrupt):
+            result = runner.invoke(main, ["--config", str(config_file), "watch"])
+        assert result.exit_code == 0
+        assert "Watch" in result.output
+
+    def test_watch_error_handling(self, runner, tmp_path):
+        """Watch handles fetch errors gracefully."""
+        config_file = tmp_path / "cfg.yaml"
+        config_file.write_text("notifications:\n  enabled: true\n  alert_score: 99.0\n")
+        with (
+            patch(
+                "tidewise.cli._fetch_all_sources",
+                side_effect=RuntimeError("fail"),
+            ),
+            patch("time.sleep", side_effect=KeyboardInterrupt),
+        ):
+            result = runner.invoke(main, ["--config", str(config_file), "watch"])
+        assert result.exit_code == 0
+        assert "Watch error" in result.output
+
+    def test_watch_sends_alert(self, runner, mock_sources, tmp_path):
+        """Watch sends notification when score crosses threshold."""
+        config_file = tmp_path / "cfg.yaml"
+        config_file.write_text("notifications:\n  enabled: true\n  alert_score: 1.0\n")
+        with (
+            patch("tidewise.notifications.should_notify", return_value=True),
+            patch(
+                "tidewise.notifications.send_notification",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch("tidewise.notifications.update_state"),
+            patch(
+                "tidewise.notifications.format_score_alert",
+                return_value=("Title", "Body"),
+            ),
+            patch("time.sleep", side_effect=KeyboardInterrupt),
+        ):
+            result = runner.invoke(main, ["--config", str(config_file), "watch"])
+        assert result.exit_code == 0
+        assert "Alert sent" in result.output
+
+    def test_watch_alert_failure(self, runner, mock_sources, tmp_path):
+        """Watch handles failed alert delivery."""
+        config_file = tmp_path / "cfg.yaml"
+        config_file.write_text("notifications:\n  enabled: true\n  alert_score: 1.0\n")
+        with (
+            patch("tidewise.notifications.should_notify", return_value=True),
+            patch(
+                "tidewise.notifications.send_notification",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+            patch(
+                "tidewise.notifications.format_score_alert",
+                return_value=("Title", "Body"),
+            ),
+            patch("time.sleep", side_effect=KeyboardInterrupt),
+        ):
+            result = runner.invoke(main, ["--config", str(config_file), "watch"])
+        assert result.exit_code == 0
+        assert "failed" in result.output
 
 
 class TestNotifyCommand:

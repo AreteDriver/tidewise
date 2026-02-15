@@ -114,6 +114,17 @@ class WaterTempData:
     station_id: str
 
 
+# --- USGS Gauge Models ---
+
+
+@dataclass(frozen=True)
+class USGSGaugeData:
+    discharge_cfs: float | None  # cubic feet per second
+    gauge_height_ft: float | None
+    timestamp: datetime
+    gauge_id: str
+
+
 # --- Scoring Models ---
 
 

@@ -153,3 +153,37 @@ class TestSuggestions:
         now = datetime(2026, 3, 15, 6, 0, tzinfo=UTC)
         suggestions = generate_suggestions([], sample_tide_data, weather, sample_solunar_data, now)
         assert any("lock jaw" in s.lower() or "slow" in s.lower() for s in suggestions)
+
+    def test_in_major_period_not_incoming(self, sample_solunar_data):
+        """During major period but tide is outgoing — generic solunar advice."""
+        now = sample_solunar_data.major_periods[0].peak
+        tide = TideData(
+            predictions=[],
+            current_direction=TideDirection.OUTGOING,
+            next_event=None,
+            minutes_until_next=0,
+            station_id="test",
+        )
+        weather = _make_weather()
+        suggestions = generate_suggestions([], tide, weather, sample_solunar_data, now)
+        assert any(
+            "solunar major" in s.lower() or "good activity" in s.lower() for s in suggestions
+        )
+
+    def test_incoming_tide_strong_current(self, sample_solunar_data):
+        """Incoming tide > 120 min to next — suggests fishing current seams."""
+        now = datetime(2026, 3, 16, 12, 0, tzinfo=UTC)  # after all solunar periods
+        tide = TideData(
+            predictions=[],
+            current_direction=TideDirection.INCOMING,
+            next_event=TidePrediction(
+                time=datetime(2026, 3, 16, 16, 0, tzinfo=UTC),
+                height_ft=8.0,
+                type=TideType.HIGH,
+            ),
+            minutes_until_next=240,
+            station_id="test",
+        )
+        weather = _make_weather()
+        suggestions = generate_suggestions([], tide, weather, sample_solunar_data, now)
+        assert any("current seam" in s.lower() for s in suggestions)

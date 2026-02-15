@@ -21,6 +21,7 @@ from tidewise.models import (
     TideDirection,
     TidePrediction,
     TideType,
+    USGSGaugeData,
     WaterTempData,
     WeatherData,
 )
@@ -141,6 +142,16 @@ def sample_water_temp_data() -> WaterTempData:
         temperature_f=52.0,
         timestamp=datetime(2026, 3, 15, 5, 30, tzinfo=UTC),
         station_id="9439040",
+    )
+
+
+@pytest.fixture
+def sample_usgs_data() -> USGSGaugeData:
+    return USGSGaugeData(
+        discharge_cfs=12500.0,
+        gauge_height_ft=8.45,
+        timestamp=datetime(2026, 3, 15, 6, 0, tzinfo=UTC),
+        gauge_id="14246900",
     )
 
 

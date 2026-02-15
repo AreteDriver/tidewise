@@ -17,9 +17,16 @@ from tidewise.models import (
     SolunarData,
     TideData,
     TideDirection,
+    USGSGaugeData,
     WaterTempData,
     WeatherData,
 )
+
+# Unit conversion helpers
+_FT_TO_M = 0.3048
+_MPH_TO_KMH = 1.60934
+_INHG_TO_HPA = 33.8639
+_CFS_TO_CMS = 0.0283168
 
 
 def render_today_summary(
@@ -30,6 +37,8 @@ def render_today_summary(
     console: Console | None = None,
     tz_name: str | None = None,
     water_temp: WaterTempData | None = None,
+    usgs: USGSGaugeData | None = None,
+    units: str = "imperial",
 ) -> None:
     """Render concise daily summary to terminal."""
     if console is None:
@@ -38,10 +47,12 @@ def render_today_summary(
     console.print()
     console.print(_build_score_panel(score))
     console.print()
-    console.print(_build_tide_panel(tide, tz_name=tz_name))
-    console.print(_build_weather_panel(weather))
+    console.print(_build_tide_panel(tide, tz_name=tz_name, units=units))
+    console.print(_build_weather_panel(weather, units=units))
     if water_temp is not None:
-        console.print(_build_water_temp_panel(water_temp))
+        console.print(_build_water_temp_panel(water_temp, units=units))
+    if usgs is not None:
+        console.print(_build_usgs_panel(usgs, units=units))
     console.print(_build_solunar_panel(solunar))
     console.print()
     console.print(_build_suggestions_panel(score))
@@ -49,23 +60,31 @@ def render_today_summary(
 
 
 def render_tide_forecast(
-    tide: TideData, console: Console | None = None, tz_name: str | None = None
+    tide: TideData,
+    console: Console | None = None,
+    tz_name: str | None = None,
+    units: str = "imperial",
 ) -> None:
     """Render tide predictions as a table."""
     if console is None:
         console = Console()
 
+    height_label = "Height (m)" if units == "metric" else "Height (ft)"
     table = Table(title=f"Tide Predictions — Station {tide.station_id}", show_lines=True)
     table.add_column("Time", style="cyan")
-    table.add_column("Height (ft)", justify="right")
+    table.add_column(height_label, justify="right")
     table.add_column("Type", style="bold")
 
     for pred in tide.predictions:
         type_style = "blue" if pred.type.value == "high" else "green"
         display_time = _to_local(pred.time, tz_name)
+        if units == "metric":
+            height_str = f"{pred.height_ft * _FT_TO_M:.2f}"
+        else:
+            height_str = f"{pred.height_ft:.1f}"
         table.add_row(
             display_time.strftime("%a %m/%d %I:%M %p"),
-            f"{pred.height_ft:.1f}",
+            height_str,
             Text(pred.type.value.upper(), style=type_style),
         )
 
@@ -259,7 +278,7 @@ def _build_score_panel(score: FishingScore) -> Panel:
     return Panel(score_text, title="[bold]Fishing Score[/bold]", border_style=color)
 
 
-def _build_tide_panel(tide: TideData, tz_name: str | None = None) -> Panel:
+def _build_tide_panel(tide: TideData, tz_name: str | None = None, units: str = "imperial") -> Panel:
     """Build the tide info panel."""
     text = Text()
     text.append("  Direction: ", style="dim")
@@ -269,30 +288,44 @@ def _build_tide_panel(tide: TideData, tz_name: str | None = None) -> Panel:
         hours = tide.minutes_until_next // 60
         mins = tide.minutes_until_next % 60
         display_time = _to_local(tide.next_event.time, tz_name)
+        if units == "metric":
+            height = tide.next_event.height_ft * _FT_TO_M
+            height_str = f"{height:.2f} m"
+        else:
+            height_str = f"{tide.next_event.height_ft:.1f} ft"
         text.append(f"  Next {tide.next_event.type.value.title()}: ", style="dim")
-        text.append(
-            f"{display_time.strftime('%I:%M %p')} "
-            f"({tide.next_event.height_ft:.1f} ft) — "
-            f"{hours}h {mins}m\n"
-        )
+        text.append(f"{display_time.strftime('%I:%M %p')} ({height_str}) — {hours}h {mins}m\n")
 
     return Panel(text, title="[bold]Tides[/bold]", border_style="blue")
 
 
-def _build_weather_panel(weather: WeatherData) -> Panel:
+def _build_weather_panel(weather: WeatherData, units: str = "imperial") -> Panel:
     """Build the weather info panel."""
     text = Text()
     text.append("  Temp: ", style="dim")
-    text.append(f"{weather.temperature_f:.0f}°F\n")
+    if units == "metric":
+        temp_c = (weather.temperature_f - 32) * 5 / 9
+        text.append(f"{temp_c:.0f}°C\n")
+    else:
+        text.append(f"{weather.temperature_f:.0f}°F\n")
     text.append("  Pressure: ", style="dim")
-    text.append(
-        f"{weather.pressure_inhg:.2f} inHg {_pressure_trend_arrow(weather.pressure_trend)}\n"
-    )
+    if units == "metric":
+        pressure_hpa = weather.pressure_inhg * _INHG_TO_HPA
+        text.append(f"{pressure_hpa:.0f} hPa {_pressure_trend_arrow(weather.pressure_trend)}\n")
+    else:
+        text.append(
+            f"{weather.pressure_inhg:.2f} inHg {_pressure_trend_arrow(weather.pressure_trend)}\n"
+        )
     text.append("  Wind: ", style="dim")
-    text.append(
-        f"{weather.wind_speed_mph:.0f} mph {weather.wind_direction} "
-        f"(gusts {weather.wind_gust_mph:.0f} mph)\n"
-    )
+    if units == "metric":
+        wind_kmh = weather.wind_speed_mph * _MPH_TO_KMH
+        gust_kmh = weather.wind_gust_mph * _MPH_TO_KMH
+        text.append(f"{wind_kmh:.0f} km/h {weather.wind_direction} (gusts {gust_kmh:.0f} km/h)\n")
+    else:
+        text.append(
+            f"{weather.wind_speed_mph:.0f} mph {weather.wind_direction} "
+            f"(gusts {weather.wind_gust_mph:.0f} mph)\n"
+        )
     text.append("  Cloud Cover: ", style="dim")
     text.append(f"{weather.cloud_cover_pct:.0f}%\n")
     text.append("  Precipitation: ", style="dim")
@@ -301,7 +334,7 @@ def _build_weather_panel(weather: WeatherData) -> Panel:
     return Panel(text, title="[bold]Weather[/bold]", border_style="yellow")
 
 
-def _build_water_temp_panel(water_temp: WaterTempData) -> Panel:
+def _build_water_temp_panel(water_temp: WaterTempData, units: str = "imperial") -> Panel:
     """Build the water temperature info panel."""
     temp = water_temp.temperature_f
     if temp < 50:
@@ -313,13 +346,42 @@ def _build_water_temp_panel(water_temp: WaterTempData) -> Panel:
 
     text = Text()
     text.append("  Water Temp: ", style="dim")
-    text.append(f"{temp:.1f}°F", style=f"bold {color}")
+    if units == "metric":
+        temp_c = (temp - 32) * 5 / 9
+        text.append(f"{temp_c:.1f}°C", style=f"bold {color}")
+    else:
+        text.append(f"{temp:.1f}°F", style=f"bold {color}")
     text.append("\n  Station: ", style="dim")
     text.append(water_temp.station_id)
     text.append("\n  Observed: ", style="dim")
     text.append(f"{water_temp.timestamp.strftime('%Y-%m-%d %H:%M')} UTC\n")
 
     return Panel(text, title="[bold]Water Temperature[/bold]", border_style=color)
+
+
+def _build_usgs_panel(usgs: USGSGaugeData, units: str = "imperial") -> Panel:
+    """Build the USGS river gauge info panel."""
+    text = Text()
+    if usgs.discharge_cfs is not None:
+        text.append("  Discharge: ", style="dim")
+        if units == "metric":
+            discharge_cms = usgs.discharge_cfs * _CFS_TO_CMS
+            text.append(f"{discharge_cms:.1f} m\u00b3/s\n")
+        else:
+            text.append(f"{usgs.discharge_cfs:,.0f} cfs\n")
+    if usgs.gauge_height_ft is not None:
+        text.append("  Gauge Height: ", style="dim")
+        if units == "metric":
+            height_m = usgs.gauge_height_ft * _FT_TO_M
+            text.append(f"{height_m:.2f} m\n")
+        else:
+            text.append(f"{usgs.gauge_height_ft:.2f} ft\n")
+    text.append("  Gauge: ", style="dim")
+    text.append(usgs.gauge_id)
+    text.append("\n  Observed: ", style="dim")
+    text.append(f"{usgs.timestamp.strftime('%Y-%m-%d %H:%M')} UTC\n")
+
+    return Panel(text, title="[bold]River Gauge (USGS)[/bold]", border_style="cyan")
 
 
 def _build_solunar_panel(solunar: SolunarData) -> Panel:

@@ -44,6 +44,7 @@ profiles:
     stations:
       tide: "9439040"
       water_temp: "9439040"
+      usgs_gauge: "14246900"   # Columbia River at Beaver Army Terminal
   newport:
     location:
       name: "Yaquina Bay - Newport"
