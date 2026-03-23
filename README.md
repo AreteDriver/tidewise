@@ -159,6 +159,10 @@ ruff check . && ruff format --check .
 
 373 tests, 97% coverage.
 
+## Community
+
+[Discord](https://discord.gg/fdzQkrt8) — Join the community
+
 ## License
 
 MIT
