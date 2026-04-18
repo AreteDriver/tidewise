@@ -1,4 +1,4 @@
-# CLAUDE.md — tidewise
+# CLAUDE.md — repo
 
 ## Project Overview
 
@@ -8,13 +8,13 @@ Local-first fishing intelligence — tides, weather, solunar scoring
 
 - **Version**: 0.4.0
 - **Language**: Python
-- **Files**: 45 across 1 languages
-- **Lines**: 7,400
+- **Files**: 47 across 1 languages
+- **Lines**: 7,564
 
 ## Architecture
 
 ```
-tidewise/
+repo/
 ├── .github/
 │   └── workflows/
 ├── config/
@@ -25,6 +25,8 @@ tidewise/
 │   └── sources/
 ├── .gitignore
 ├── .gitleaks.toml
+├── CLAUDE.md
+├── LICENSE
 ├── README.md
 ├── pyproject.toml
 ```
@@ -131,6 +133,13 @@ tidewise.cli:main
 - `MAJOR`
 - `MINOR`
 - `NEW_MOON`
+
+## AI Skills
+
+**Recommended skills** (not yet installed):
+- `cicd-pipeline`
+- `code-reviewer`
+- `testing-specialist`
 
 ## Git Conventions
 
